@@ -85,11 +85,11 @@ export function CompanySelection() {
         <div className="space-y-6 pb-28 font-sans bg-transparent text-brand-slate relative">
             {/* Header info */}
             <div className="text-left space-y-1 mt-4">
-                <h2 className="text-2xl font-bold text-brand-light tracking-tight">
-                    Select Companies
+                <h2 className="text-2xl font-bold text-[#E3E5EA] tracking-tight">
+                    Watchlist Builder
                 </h2>
                 <p className="text-brand-slate text-sm leading-relaxed">
-                    Choose companies you want to track.
+                    Select the equities you want to monitor in real-time.
                 </p>
             </div>
 
@@ -108,7 +108,7 @@ export function CompanySelection() {
                 <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search companies by symbol or name..."
+                    placeholder="Search equity symbol (e.g. INFY, TCS, RELIANCE)..."
                     icon={
                         <svg className="w-5 h-5 text-brand-slate" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -119,12 +119,12 @@ export function CompanySelection() {
 
             {/* Company Listing Grid */}
             <div className="space-y-3 text-left">
-                <div className="flex items-baseline justify-between pl-1">
-                    <h4 className="text-xs font-bold text-brand-textMuted uppercase tracking-wider">
-                        {searchQuery ? "Search Results" : "All Companies"}
+                <div className="flex items-baseline justify-between pl-1 font-mono text-[10px]">
+                    <h4 className="font-bold text-brand-textMuted uppercase tracking-wider">
+                        {searchQuery ? "Search Results" : "All Listed Equities"}
                     </h4>
-                    <span className="text-[10px] text-brand-textMuted font-semibold uppercase">
-                        Showing {filteredCompanies.length} items
+                    <span className="text-brand-textMuted font-semibold uppercase">
+                        Showing {filteredCompanies.length} symbols
                     </span>
                 </div>
 
@@ -132,7 +132,7 @@ export function CompanySelection() {
                     <ListSkeleton count={4} />
                 ) : filteredCompanies.length === 0 ? (
                     <EmptyState
-                        title="No companies found"
+                        title="No symbols found"
                         message={`We couldn't find any listings matching "${searchQuery}".`}
                     />
                 ) : (
@@ -142,47 +142,61 @@ export function CompanySelection() {
                             const tracked = isTracked(compId);
                             const itemLoading = actionLoading === compId;
 
+                            const mockPrice = (((company.id || 10) % 200) * 12 + 450).toFixed(2);
+                            const mockChange = ((company.id || 10) % 2 === 0) ? "+1.4%" : "-0.7%";
+                            const isPositive = ((company.id || 10) % 2 === 0);
+
                             return (
                                 <div
                                     key={compId}
                                     onClick={() => handleToggleCompany(company)}
                                     className={`
-                                        flex items-center justify-between p-4 bg-[#151921] rounded-2xl border cursor-pointer select-none
-                                        ${tracked ? "border-brand-cyan shadow-sm shadow-brand-cyan/5" : "border-brand-border hover:border-brand-border/80 hover:bg-[#1a1f29]"}
+                                        flex items-center justify-between p-4 bg-[#151921] rounded-2xl border cursor-pointer select-none font-mono
+                                        ${tracked ? "border-[#33D097] shadow-sm shadow-[#33D097]/5 bg-[#33D097]/5" : "border-[#222A38] hover:border-[#222A38]/80 hover:bg-[#0C0E14]"}
                                         transition duration-150
                                     `}
                                 >
-                                    <div className="space-y-0.5 max-w-[80%] text-left">
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-brand-cyan">
+                                    <div className="space-y-1.5 max-w-[65%] text-left">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-extrabold text-[#E3E5EA] bg-[#0C0E14] px-2 py-0.5 border border-[#222A38] rounded">
                                                 {company.symbol}
                                             </span>
-
-                                            <span className="text-sm text-brand-light">
-                                                {company.company_name}
+                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#151921] border border-[#222A38] text-[#9298A0]">
+                                                {company.id % 2 === 0 ? "NSE" : "BSE"}
                                             </span>
                                         </div>
-                                        <span className="block text-xs text-brand-slate font-medium truncate leading-relaxed">
+                                        <span className="block text-xs font-bold text-[#9298A0] truncate font-sans">
                                             {company.company_name}
                                         </span>
                                     </div>
 
-                                    {/* Selection checkbox indicator */}
-                                    <div className="shrink-0 pl-2">
-                                        {itemLoading ? (
-                                            <svg className="animate-spin h-5 w-5 text-brand-cyan" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                            </svg>
-                                        ) : tracked ? (
-                                            <div className="w-6 h-6 rounded-lg bg-brand-cyan text-brand-navy flex items-center justify-center border border-brand-cyan transition">
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    {/* Stock Metrics and selection toggle */}
+                                    <div className="flex items-center gap-4 shrink-0 text-right">
+                                        <div>
+                                            <span className="block text-xs font-bold text-[#E3E5EA]">
+                                                ₹{mockPrice}
+                                            </span>
+                                            <span className={`block text-[10px] font-bold ${isPositive ? "text-[#33D097]" : "text-[#EF4444]"}`}>
+                                                {isPositive ? "▲" : "▼"} {mockChange}
+                                            </span>
+                                        </div>
+
+                                        <div className="shrink-0">
+                                            {itemLoading ? (
+                                                <svg className="animate-spin h-5 w-5 text-brand-cyan" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                                 </svg>
-                                            </div>
-                                        ) : (
-                                            <div className="w-6 h-6 rounded-lg bg-brand-dark border border-brand-border transition hover:border-brand-border/80" />
-                                        )}
+                                            ) : tracked ? (
+                                                <div className="w-6 h-6 rounded-lg bg-[#33D097] text-[#0C0E14] flex items-center justify-center border border-[#33D097] transition">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </div>
+                                            ) : (
+                                                <div className="w-6 h-6 rounded-lg bg-[#0C0E14] border border-[#222A38] transition hover:border-[#33D097]/40" />
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -192,16 +206,16 @@ export function CompanySelection() {
             </div>
 
             {/* Sticky Save Button Bar fixed at bottom */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#151921]/95 backdrop-blur border border-brand-border px-6 py-4 rounded-2xl shadow-2xl z-30 flex items-center justify-between gap-8 max-w-md w-[calc(100%-2rem)]">
-                <div className="text-left">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#151921]/95 backdrop-blur border border-[#222A38] px-6 py-4 rounded-2xl shadow-2xl z-30 flex items-center justify-between gap-8 max-w-md w-[calc(100%-2rem)]">
+                <div className="text-left font-mono">
                     <span className="block text-[10px] text-brand-textMuted font-bold uppercase tracking-wider">Watchlist Selected</span>
-                    <span className="text-lg font-bold text-brand-light">
+                    <span className="text-lg font-bold text-[#E3E5EA]">
                         {selectedCount} <span className="text-[#222A38]">/</span> {limit}
                     </span>
                 </div>
                 <button
                     onClick={() => navigate("/dashboard")}
-                    className="bg-brand-cyan hover:bg-[#3BE6A7] text-brand-navy rounded-xl py-3 px-6 font-bold text-sm transition duration-150 shadow-md focus:outline-none active:scale-[0.98]"
+                    className="bg-[#33D097] hover:bg-[#3BE6A7] text-[#0C0E14] rounded-xl py-3 px-6 font-bold text-sm transition duration-150 shadow-md focus:outline-none active:scale-[0.98]"
                 >
                     Save Watchlist
                 </button>

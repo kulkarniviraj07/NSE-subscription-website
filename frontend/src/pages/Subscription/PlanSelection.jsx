@@ -111,14 +111,14 @@ export function PlanSelection() {
     };
 
     return (
-        <div className="space-y-6 pb-8 font-sans bg-transparent text-[#9298A0]">
+        <div className="space-y-6 pb-8 font-sans bg-transparent text-[#9298A0] relative z-10">
             {/* Minimal Header */}
             <div className="text-center max-w-sm mx-auto space-y-2 mt-4 text-left">
                 <h2 className="text-2xl font-bold text-[#E3E5EA] tracking-tight text-center">
-                    Plans
+                    Terminal Licenses
                 </h2>
-                <p className="text-[#6B7280] text-xs leading-relaxed text-center">
-                    Simple and transparent pricing plans.
+                <p className="text-[#6B7280] text-xs leading-relaxed text-center font-mono">
+                    Select your corporate watchlist monitoring clearance tier.
                 </p>
             </div>
 
@@ -154,6 +154,10 @@ export function PlanSelection() {
                         currentPlanName === plan.name;
                     const itemLoading = actionLoading === plan.name;
 
+                    // Specialized Stock Market terminology
+                    const planTitle = isPremiumPlan ? "Professional Watchlist" : "Starter Watchlist";
+                    const planSub = isPremiumPlan ? "Full terminal monitoring clearance" : "Basic equity alert monitoring";
+
                     return (
                         <div
                             key={plan.id || idx}
@@ -164,12 +168,17 @@ export function PlanSelection() {
                             `}
                         >
                             <div className="space-y-4">
-                                <h3 className="text-xl font-bold text-[#E3E5EA] uppercase tracking-wide">
-                                    {plan.name}
-                                </h3>
+                                <div>
+                                    <h3 className="text-lg font-bold text-[#E3E5EA] uppercase tracking-wide">
+                                        {planTitle}
+                                    </h3>
+                                    <p className="text-[10px] text-[#6B7280] font-mono mt-0.5 uppercase">
+                                        {planSub}
+                                    </p>
+                                </div>
 
                                 <div className="flex items-baseline gap-1 border-b border-[#222A38] pb-4">
-                                    <span className="text-4xl font-bold text-[#E3E5EA] tracking-tight">
+                                    <span className="text-4xl font-bold text-[#E3E5EA] tracking-tight font-mono">
                                         ₹{parseFloat(plan.price).toFixed(0)}
                                     </span>
                                     <span className="text-xs text-[#9298A0] font-semibold uppercase">
@@ -177,19 +186,39 @@ export function PlanSelection() {
                                     </span>
                                 </div>
 
-                                {/* Minimal Features list */}
+                                {/* Custom Stock Market Features list */}
                                 <ul className="space-y-3 py-2 text-xs font-semibold text-[#9298A0]">
                                     <li className="flex items-center gap-2.5">
                                         <svg className="w-4 h-4 text-[#33D097] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                         </svg>
-                                        Access all 500 companies
+                                        Access all listed companies
                                     </li>
                                     <li className="flex items-center gap-2.5">
                                         <svg className="w-4 h-4 text-[#33D097] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                         </svg>
-                                        Select up to <span className="text-[#E3E5EA] font-bold">{plan.company_limit} companies</span>
+                                        Track up to <span className="text-[#E3E5EA] font-bold font-mono">{plan.company_limit} symbols</span>
+                                    </li>
+                                    <li className="flex items-center gap-2.5">
+                                        <svg className="w-4 h-4 text-[#33D097] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        {isPremiumPlan ? (
+                                            <span>Real-time WhatsApp alerts</span>
+                                        ) : (
+                                            <span className="text-[#6B7280]">Standard alert dispatch</span>
+                                        )}
+                                    </li>
+                                    <li className="flex items-center gap-2.5">
+                                        <svg className="w-4 h-4 text-[#33D097] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        {isPremiumPlan ? (
+                                            <span>Priority accelerated crawl feed</span>
+                                        ) : (
+                                            <span className="text-[#6B7280]">Standard crawl speed</span>
+                                        )}
                                     </li>
                                 </ul>
                             </div>
@@ -217,7 +246,7 @@ export function PlanSelection() {
                                             : "bg-transparent border border-[#222A38] !text-[#E3E5EA] hover:bg-[#151921] focus:!ring-[#222A38]"
                                             }`}
                                     >
-                                        {isPremiumPlan ? "Upgrade Now" : "Choose Free"}
+                                        {isPremiumPlan ? "Activate Pro Suite" : "Select Starter Plan"}
                                     </Button>
                                 )}
                             </div>

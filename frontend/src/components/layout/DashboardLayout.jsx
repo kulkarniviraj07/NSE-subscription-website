@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import BottomNavigation from "./BottomNavigation";
+import { MarketChartBackground } from "../common/MarketChartBackground";
 
 /**
  * Dashboard Layout coordinating Navbar, Sidebar, and child dashboard paths.
@@ -12,7 +13,10 @@ export function DashboardLayout() {
     const [mobileOpen, setMobileOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-brand-navy flex flex-col md:flex-row">
+        <div className="min-h-screen bg-brand-navy flex flex-col md:flex-row relative overflow-hidden">
+            {/* Ambient Stock Market terminal graphics */}
+            <MarketChartBackground />
+
             {/* Sidebar (Fixed Navigation Drawer for Desktop) */}
             <Sidebar
                 collapsed={collapsed}
@@ -24,7 +28,7 @@ export function DashboardLayout() {
             {/* Main Application Workspace */}
             <div
                 className={`
-                    flex-1 flex flex-col min-h-screen min-w-0
+                    flex-1 flex flex-col min-h-screen min-w-0 relative z-10
                     transition-all duration-300 ease-in-out
                     ${collapsed ? "md:pl-20" : "md:pl-64"}
                     pb-20 md:pb-0
@@ -37,7 +41,7 @@ export function DashboardLayout() {
                 />
 
                 {/* Core Scrollable Panel Page */}
-                <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto animate-fade-in overflow-y-auto">
+                <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto animate-fade-in overflow-y-auto relative z-10">
                     <Outlet />
                 </main>
             </div>

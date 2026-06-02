@@ -50,12 +50,37 @@ export function Navbar({ setMobileOpen, collapsed }) {
                 </div>
             </div>
 
+            {/* Middle Portion: Live Market Indices Trackers (Bloomberg style) */}
+            <div className="hidden lg:flex items-center gap-6 text-xs font-mono">
+                <div className="flex items-center gap-2 px-3 py-1 bg-brand-dark border border-brand-border rounded-lg">
+                    <span className="text-[#9298A0] font-bold">NIFTY 50</span>
+                    <span className="text-brand-light font-bold">24,115.50</span>
+                    <span className="text-brand-cyan flex items-center font-bold">
+                        ▲ +1.2%
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-brand-dark border border-brand-border rounded-lg">
+                    <span className="text-[#9298A0] font-bold">SENSEX</span>
+                    <span className="text-brand-light font-bold">79,250.20</span>
+                    <span className="text-brand-cyan flex items-center font-bold">
+                        ▲ +1.1%
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-brand-dark border border-brand-border rounded-lg">
+                    <span className="text-[#9298A0] font-bold">INDIA VIX</span>
+                    <span className="text-brand-light font-bold">13.45</span>
+                    <span className="text-red-400 flex items-center font-bold">
+                        ▼ -3.4%
+                    </span>
+                </div>
+            </div>
+
             {/* Right Portion: Connection indicator and Profile menu */}
             <div className="flex items-center gap-4">
                 {/* Connection Status tag */}
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-dark border border-brand-border text-brand-cyan text-xs font-semibold">
-                    <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full" />
-                    Portal Online
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-dark border border-brand-border text-brand-cyan text-[11px] font-semibold tracking-wider uppercase">
+                    <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
+                    Terminal Session Secure
                 </div>
 
                 {/* Profile menu */}
