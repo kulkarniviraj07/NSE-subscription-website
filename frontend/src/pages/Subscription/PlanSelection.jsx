@@ -94,7 +94,7 @@ export function PlanSelection() {
                     contact: localStorage.getItem("mobile") || ""
                 },
                 theme: {
-                    color: "#2563EB"
+                    color: "#33D097"
                 }
             };
 
@@ -111,20 +111,20 @@ export function PlanSelection() {
     };
 
     return (
-        <div className="space-y-6 pb-8 font-sans bg-slate-50 text-slate-800">
+        <div className="space-y-6 pb-8 font-sans bg-transparent text-[#9298A0]">
             {/* Minimal Header */}
             <div className="text-center max-w-sm mx-auto space-y-2 mt-4 text-left">
-                <h2 className="text-2xl font-bold text-slate-900 tracking-tight text-center">
+                <h2 className="text-2xl font-bold text-[#E3E5EA] tracking-tight text-center">
                     Plans
                 </h2>
-                <p className="text-slate-500 text-xs leading-relaxed text-center">
+                <p className="text-[#6B7280] text-xs leading-relaxed text-center">
                     Simple and transparent pricing plans.
                 </p>
             </div>
 
             {/* Notifications */}
             {errorMessage && (
-                <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-xs font-semibold flex items-center gap-2.5 shadow-sm max-w-md mx-auto text-left">
+                <div className="p-4 bg-[#151921] border border-red-900/50 text-red-400 rounded-2xl text-xs font-semibold flex items-center gap-2.5 shadow-sm max-w-md mx-auto text-left">
                     <svg className="w-4.5 h-4.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
@@ -133,7 +133,7 @@ export function PlanSelection() {
             )}
 
             {successMessage && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-2xl text-xs font-semibold flex items-center gap-2.5 shadow-sm max-w-md mx-auto text-left">
+                <div className="p-4 bg-[#151921] border border-[#33D097]/40 text-[#33D097] rounded-2xl text-xs font-semibold flex items-center gap-2.5 shadow-sm max-w-md mx-auto text-left">
                     <svg className="w-4.5 h-4.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -158,48 +158,48 @@ export function PlanSelection() {
                         <div
                             key={plan.id || idx}
                             className={`
-                                relative p-6 bg-white rounded-2xl border text-left flex flex-col justify-between overflow-hidden shadow-sm flex-1 min-w-[280px]
-                                ${isPremiumPlan ? "border-blue-600 ring-2 ring-blue-50" : "border-slate-200"}
-                                transition duration-150 hover:shadow-md
+                                relative p-6 bg-[#151921] rounded-2xl border text-left flex flex-col justify-between overflow-hidden shadow-md flex-1 min-w-[280px]
+                                ${isPremiumPlan ? "border-[#33D097] shadow-lg shadow-[#33D097]/5" : "border-[#222A38] shadow-md shadow-[#0C0E14]"}
+                                transition duration-150 hover:shadow-lg
                             `}
                         >
                             <div className="space-y-4">
-                                <h3 className="text-xl font-bold text-slate-900 uppercase tracking-wide">
+                                <h3 className="text-xl font-bold text-[#E3E5EA] uppercase tracking-wide">
                                     {plan.name}
                                 </h3>
 
-                                <div className="flex items-baseline gap-1 border-b border-slate-100 pb-4">
-                                    <span className="text-4xl font-bold text-slate-900 tracking-tight">
+                                <div className="flex items-baseline gap-1 border-b border-[#222A38] pb-4">
+                                    <span className="text-4xl font-bold text-[#E3E5EA] tracking-tight">
                                         ₹{parseFloat(plan.price).toFixed(0)}
                                     </span>
-                                    <span className="text-xs text-slate-400 font-semibold uppercase">
+                                    <span className="text-xs text-[#9298A0] font-semibold uppercase">
                                         {isPremiumPlan ? "/ month" : ""}
                                     </span>
                                 </div>
 
                                 {/* Minimal Features list */}
-                                <ul className="space-y-3 py-2 text-xs font-semibold text-slate-500">
+                                <ul className="space-y-3 py-2 text-xs font-semibold text-[#9298A0]">
                                     <li className="flex items-center gap-2.5">
-                                        <svg className="w-4 h-4 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                        <svg className="w-4 h-4 text-[#33D097] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                         </svg>
                                         Access all 500 companies
                                     </li>
                                     <li className="flex items-center gap-2.5">
-                                        <svg className="w-4 h-4 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                        <svg className="w-4 h-4 text-[#33D097] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                         </svg>
-                                        Select up to <span className="text-slate-900 font-bold">{plan.company_limit} companies</span>
+                                        Select up to <span className="text-[#E3E5EA] font-bold">{plan.company_limit} companies</span>
                                     </li>
                                 </ul>
                             </div>
 
                             {/* Plan Action CTA */}
-                            <div className="mt-6 pt-3.5 border-t border-slate-100">
+                            <div className="mt-6 pt-3.5 border-t border-[#222A38]">
                                 {isCurrent ? (
                                     <button
                                         disabled
-                                        className="w-full h-12 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-xs uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-1.5 focus:outline-none"
+                                        className="w-full h-12 border border-[#33D097] bg-[#151921] text-[#33D097] rounded-xl font-bold text-xs uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-1.5 focus:outline-none"
                                     >
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -213,8 +213,8 @@ export function PlanSelection() {
                                         disabled={actionLoading !== null}
                                         variant="primary"
                                         className={`w-full !h-12 text-xs uppercase tracking-wider !rounded-xl !font-bold ${isPremiumPlan
-                                            ? "!bg-blue-600 hover:!bg-blue-700 !text-white focus:!ring-blue-100"
-                                            : "!bg-slate-100 hover:!bg-slate-200 !text-slate-700"
+                                            ? "!bg-[#33D097] hover:!bg-[#3BE6A7] !text-[#0C0E14] focus:!ring-[#33D097]/20"
+                                            : "bg-transparent border border-[#222A38] !text-[#E3E5EA] hover:bg-[#151921] focus:!ring-[#222A38]"
                                             }`}
                                     >
                                         {isPremiumPlan ? "Upgrade Now" : "Choose Free"}

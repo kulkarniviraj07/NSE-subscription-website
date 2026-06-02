@@ -13,10 +13,10 @@ function Button({
                 w-full
                 h-14
                 px-6
-                bg-[#2563EB]
-                hover:bg-[#1D4ED8]
-                active:bg-[#1E40AF]
-                text-white
+                bg-[#33D097]
+                hover:bg-[#3BE6A7]
+                active:scale-[0.98]
+                text-[#0C0E14]
                 rounded-xl
                 font-semibold
                 text-base
@@ -27,20 +27,20 @@ function Button({
                 transition-all
                 duration-200
                 focus:outline-none
-                focus:ring-4
-                focus:ring-blue-100
+                focus:ring-2
+                focus:ring-[#33D097]/25
                 disabled:opacity-60
                 disabled:cursor-not-allowed
-                disabled:hover:bg-[#2563EB]
-                shadow-sm
-                hover:shadow-md
+                disabled:hover:bg-[#33D097]
+                shadow-md
+                hover:shadow-lg
                 active:scale-[0.99]
             "
             {...props}
         >
             {loading && (
                 <svg 
-                    className="animate-spin h-5 w-5 text-white" 
+                    className="animate-spin h-5 w-5 text-[#0C0E14]" 
                     xmlns="http://www.w3.org/2000/svg" 
                     fill="none" 
                     viewBox="0 0 24 24"

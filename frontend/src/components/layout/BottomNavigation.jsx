@@ -21,7 +21,7 @@ export function BottomNavigation() {
     ];
 
     return (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 border-t border-slate-200 text-slate-800 shadow-lg backdrop-blur-md pb-safe">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0C0E14]/95 border-t border-[#222A38] text-[#E3E5EA] shadow-lg backdrop-blur-md pb-safe">
             <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
                 {tabs.map((tab, idx) => {
                     const isActive = location.pathname === tab.path;
@@ -30,12 +30,12 @@ export function BottomNavigation() {
                         <button
                             key={idx}
                             onClick={() => navigate(tab.path)}
-                            className="flex flex-col items-center justify-center w-full h-full text-slate-400 focus:outline-none transition-all duration-150"
+                            className="flex flex-col items-center justify-center w-full h-full text-[#9298A0] focus:outline-none transition-all duration-150"
                         >
-                            <div className={`p-1 transition-all duration-150 ${isActive ? "text-blue-600 scale-110" : "hover:text-slate-600"}`}>
+                            <div className={`p-1 transition-all duration-150 ${isActive ? "text-[#33D097] scale-110" : "hover:text-[#E3E5EA]"}`}>
                                 {tab.icon}
                             </div>
-                            <span className={`text-[10px] font-semibold mt-0.5 tracking-wider uppercase ${isActive ? "text-blue-600" : "text-slate-400"}`}>
+                            <span className={`text-[10px] font-semibold mt-0.5 tracking-wider uppercase ${isActive ? "text-[#33D097]" : "text-[#9298A0]"}`}>
                                 {tab.label}
                             </span>
                         </button>

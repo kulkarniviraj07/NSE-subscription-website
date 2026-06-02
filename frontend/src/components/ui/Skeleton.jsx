@@ -4,7 +4,7 @@ import React from "react";
  * Premium skeleton loaders with smooth pulse animations.
  */
 export function Skeleton({ className = "", variant = "text" }) {
-    const base = "bg-slate-200 animate-pulse rounded-lg";
+    const base = "bg-[#1A2230] animate-pulse rounded-lg";
     
     const variants = {
         text: "h-4 w-full",

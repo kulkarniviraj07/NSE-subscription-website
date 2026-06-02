@@ -12,7 +12,7 @@ export function DashboardLayout() {
     const [mobileOpen, setMobileOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+        <div className="min-h-screen bg-brand-navy flex flex-col md:flex-row">
             {/* Sidebar (Fixed Navigation Drawer for Desktop) */}
             <Sidebar
                 collapsed={collapsed}

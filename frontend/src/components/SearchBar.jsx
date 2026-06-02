@@ -7,7 +7,7 @@ function SearchBar({
         <div className="relative w-full mb-6">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <svg
-                    className="h-5 w-5 text-slate-400"
+                    className="h-5 w-5 text-[#6B7280]"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -30,21 +30,21 @@ function SearchBar({
                     h-14
                     pl-11
                     pr-4
-                    bg-white
+                    bg-[#151921]
                     border
-                    border-slate-200
+                    border-[#222A38]
                     rounded-2xl
-                    text-slate-900
-                    placeholder-slate-400
+                    text-[#E3E5EA]
+                    placeholder-[#6B7280]
                     font-medium
                     text-base
                     transition-all
                     duration-200
                     focus:outline-none
-                    focus:border-[#2563EB]
-                    focus:ring-4
-                    focus:ring-blue-50
-                    hover:border-slate-300
+                    focus:border-[#33D097]
+                    focus:ring-2
+                    focus:ring-[#33D097]/20
+                    hover:border-[#222A38]/80
                     shadow-sm
                 "
                 {...props}

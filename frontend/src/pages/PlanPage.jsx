@@ -181,7 +181,7 @@ function PlanPage() {
                     theme: {
 
                         color:
-                            "#2563EB"
+                            "#33D097"
 
                     }
 
@@ -222,23 +222,23 @@ function PlanPage() {
 
     return (
 
-        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center py-12 px-4 relative overflow-hidden">
+        <div className="min-h-screen bg-[#0C0E14] flex items-center justify-center py-12 px-4 relative overflow-hidden">
 
-            <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#33D097]/5 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#33D097]/5 rounded-full blur-3xl pointer-events-none" />
 
             <div className="max-w-4xl w-full relative z-10">
 
                 <div className="text-center mb-12">
 
-                    <h1 className="text-4xl font-extrabold text-[#0F172A] tracking-tight sm:text-5xl">
+                    <h1 className="text-4xl font-extrabold text-[#E3E5EA] tracking-tight sm:text-5xl">
 
                         Choose Your Plan
 
                     </h1>
 
-                    <p className="text-[#64748B] text-base sm:text-lg mt-3 font-medium max-w-md mx-auto">
+                    <p className="text-[#9298A0] text-base sm:text-lg mt-3 font-medium max-w-md mx-auto">
 
                         Select a plan that fits your tracking needs. No hidden charges.
 
@@ -252,11 +252,11 @@ function PlanPage() {
 
                         ? (
 
-                            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-slate-100 shadow-sm max-w-md mx-auto">
+                            <div className="flex flex-col items-center justify-center p-12 bg-[#151921] rounded-3xl border border-[#222A38] shadow-md shadow-[#0C0E14]/40 max-w-md mx-auto">
 
                                 <Loader />
 
-                                <p className="text-[#64748B] font-semibold text-sm mt-4">
+                                <p className="text-[#9298A0] font-semibold text-sm mt-4">
 
                                     Loading plans...
 

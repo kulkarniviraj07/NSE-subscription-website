@@ -4,67 +4,61 @@ function VerifyPage() {
     const navigate = useNavigate();
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4 relative overflow-hidden">
-            {/* Ambient background decoration */}
-            <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="min-h-screen bg-[#0C0E14] flex items-center justify-center px-4 relative overflow-hidden">
+            {/* Decorative background grids */}
+            <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#33D097]/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#33D097]/5 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="w-full max-w-md bg-white rounded-[32px] shadow-xl shadow-slate-100/50 border border-slate-100 p-8 sm:p-10 text-center relative z-10">
+            <div className="w-full max-w-md bg-[#151921] rounded-[32px] shadow-xl shadow-[#0C0E14]/50 border border-[#222A38] p-8 sm:p-10 text-center relative z-10">
                 
-                {/* Large Green Checkmark Success SVG */}
-                <div className="flex justify-center mb-6">
-                    <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center border border-green-100/50 shadow-sm shadow-green-100">
+                <div className="flex flex-col items-center">
+                    <div className="w-20 h-20 bg-[#0C0E14] border border-[#222A38] rounded-2xl flex items-center justify-center mb-6">
                         <svg 
-                            className="w-10 h-10 text-[#16A34A]" 
+                            className="w-10 h-10 text-[#33D097]" 
                             fill="none" 
                             viewBox="0 0 24 24" 
                             stroke="currentColor" 
-                            strokeWidth="3"
+                            strokeWidth="2.5"
                         >
                             <path 
                                 strokeLinecap="round" 
                                 strokeLinejoin="round" 
-                                d="M5 13l4 4L19 7" 
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" 
                             />
                         </svg>
                     </div>
-                </div>
 
-                <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-                    Setup Complete
-                </h1>
+                    <h1 className="text-3xl font-extrabold text-[#E3E5EA] tracking-tight">
+                        Payment Verified
+                    </h1>
 
-                <p className="text-[#64748B] text-base font-semibold mt-3 leading-relaxed max-w-xs mx-auto">
-                    You will now receive company updates.
-                </p>
+                    <p className="text-[#9298A0] text-base font-semibold mt-3 leading-relaxed max-w-xs mx-auto">
+                        Your premium access has been activated successfully.
+                    </p>
 
-                <div className="mt-8">
-                    <button 
-                        onClick={() => navigate("/")}
-                        className="
-                            w-full 
-                            h-14 
-                            bg-[#16A34A] 
-                            hover:bg-[#15803D] 
-                            active:bg-[#14532D]
-                            text-white 
-                            font-semibold 
-                            rounded-xl 
-                            shadow-sm 
-                            hover:shadow-md
-                            transition-all 
-                            duration-200
-                            focus:outline-none
-                            focus:ring-4 
-                            focus:ring-green-100
-                            flex
-                            items-center
-                            justify-center
-                            active:scale-[0.99]
-                        "
-                    >
-                        Finish
-                    </button>
+                    <div className="mt-8 w-full">
+                        <button
+                            onClick={() => navigate("/companies")}
+                            className="
+                                w-full
+                                h-14
+                                px-6
+                                bg-[#33D097] 
+                                hover:bg-[#3BE6A7] 
+                                active:scale-[0.98]
+                                text-[#0C0E14]
+                                rounded-xl
+                                font-semibold
+                                text-base
+                                transition-all
+                                duration-200
+                                shadow-md
+                                hover:shadow-lg
+                            "
+                        >
+                            Continue
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

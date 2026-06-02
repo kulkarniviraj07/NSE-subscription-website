@@ -28,12 +28,12 @@ export function Navbar({ setMobileOpen, collapsed }) {
     };
 
     return (
-        <header className="sticky top-0 z-30 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 transition-all duration-200">
+        <header className="sticky top-0 z-30 h-16 bg-brand-navy/90 backdrop-blur-md border-b border-brand-border flex items-center justify-between px-6 transition-all duration-200">
             {/* Left Portion: Mobile menu burger and welcome path */}
             <div className="flex items-center gap-4">
                 <button
                     onClick={() => setMobileOpen(true)}
-                    className="p-2 -ml-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 md:hidden transition-colors"
+                    className="p-2 -ml-2 rounded-xl text-brand-slate hover:text-brand-light hover:bg-brand-dark md:hidden transition-colors"
                 >
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -41,10 +41,10 @@ export function Navbar({ setMobileOpen, collapsed }) {
                 </button>
 
                 <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                    <span className="text-[10px] font-bold text-brand-textMuted uppercase tracking-wider pl-0.5">
                         Watchlist Portal
                     </span>
-                    <span className="text-sm font-bold text-slate-900 tracking-tight">
+                    <span className="text-sm font-bold text-brand-light tracking-tight">
                         {getPageTitle()}
                     </span>
                 </div>
@@ -53,8 +53,8 @@ export function Navbar({ setMobileOpen, collapsed }) {
             {/* Right Portion: Connection indicator and Profile menu */}
             <div className="flex items-center gap-4">
                 {/* Connection Status tag */}
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-semibold">
-                    <span className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-dark border border-brand-border text-brand-cyan text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full" />
                     Portal Online
                 </div>
 
@@ -62,21 +62,21 @@ export function Navbar({ setMobileOpen, collapsed }) {
                 <div className="relative">
                     <button
                         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                        className="flex items-center gap-2.5 p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition duration-150"
+                        className="flex items-center gap-2.5 p-1.5 rounded-xl border border-brand-border hover:border-brand-cyan/40 hover:bg-brand-dark transition duration-150"
                     >
-                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 text-sm font-bold flex items-center justify-center shadow-sm">
+                        <div className="w-8 h-8 rounded-lg bg-brand-dark border border-brand-border text-brand-cyan text-sm font-bold flex items-center justify-center shadow-sm">
                             {getUserInitial()}
                         </div>
                         <div className="hidden sm:flex flex-col text-left pr-1.5">
-                            <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
+                            <span className="text-xs font-bold text-brand-light truncate max-w-[120px]">
                                 {user?.name || "User"}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-semibold">
+                            <span className="text-[10px] text-brand-slate font-semibold">
                                 +91 {user?.mobile || "N/A"}
                             </span>
                         </div>
                         <svg
-                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${profileDropdownOpen ? "rotate-180" : ""}`}
+                            className={`w-3.5 h-3.5 text-brand-slate transition-transform duration-200 ${profileDropdownOpen ? "rotate-180" : ""}`}
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -93,12 +93,12 @@ export function Navbar({ setMobileOpen, collapsed }) {
                                 className="fixed inset-0 z-40"
                                 onClick={() => setProfileDropdownOpen(false)}
                             />
-                            <div className="absolute right-0 mt-2.5 w-52 bg-white border border-slate-200 rounded-2xl shadow-lg z-50 p-2 animate-fade-in text-left">
-                                <div className="px-3 py-2.5 border-b border-slate-100">
-                                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <div className="absolute right-0 mt-2.5 w-52 bg-brand-dark border border-brand-border rounded-2xl shadow-xl z-50 p-2 animate-fade-in text-left">
+                                <div className="px-3 py-2.5 border-b border-brand-border">
+                                    <span className="block text-[10px] font-bold text-brand-textMuted uppercase tracking-wider">
                                         Active Profile
                                     </span>
-                                    <span className="block text-xs font-bold text-slate-800 mt-0.5 truncate">
+                                    <span className="block text-xs font-bold text-brand-light mt-0.5 truncate">
                                         {user?.name || "User"}
                                     </span>
                                 </div>
@@ -107,7 +107,7 @@ export function Navbar({ setMobileOpen, collapsed }) {
                                         setProfileDropdownOpen(false);
                                         logout();
                                     }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 mt-1.5 rounded-xl text-left text-xs font-bold text-red-500 hover:bg-red-50 transition"
+                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 mt-1.5 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-950/20 transition"
                                 >
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

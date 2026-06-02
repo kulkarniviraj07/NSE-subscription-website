@@ -8,12 +8,16 @@ export default {
         extend: {
             colors: {
                 brand: {
-                    navy: "#0F172A",
-                    cyan: "#06B6D4",
-                    dark: "#111827",
-                    slate: "#1E293B",
-                    light: "#E2E8F0",
-                    bg: "#F8FAFC"
+                    navy: "#0C0E14", // main background
+                    cyan: "#33D097", // primary accent (mint)
+                    dark: "#151921", // card / secondary background
+                    slate: "#9298A0", // secondary text
+                    light: "#E3E5EA", // primary text
+                    bg: "#0C0E14", // main background fallback
+                    border: "#222A38", // border color
+                    grid: "#1A2230", // grid lines
+                    accentSecondary: "#238F6A", // secondary accent
+                    textMuted: "#6B7280" // muted text
                 }
             },
             fontFamily: {

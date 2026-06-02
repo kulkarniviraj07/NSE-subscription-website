@@ -19,16 +19,16 @@ function CompanyCard({
                 select-none
                 ${
                     selected
-                        ? "border-[#2563EB] bg-blue-50/30 shadow-sm"
-                        : "border-slate-100 bg-white hover:bg-slate-50/60 hover:border-slate-200"
+                        ? "border-[#33D097] bg-[#151921] shadow-inner shadow-[#33D097]/5"
+                        : "border-[#222A38] bg-[#151921] hover:bg-[#1a1f29] hover:border-[#222A38]/80"
                 }
             `}
         >
             <div className="flex-1 min-w-0 pr-4">
-                <p className="font-semibold text-[#0F172A] truncate text-[15px] sm:text-base">
+                <p className="font-semibold text-[#E3E5EA] truncate text-[15px] sm:text-base">
                     {company.company_name}
                 </p>
-                <p className="text-xs sm:text-sm font-semibold text-[#64748B] mt-1 uppercase tracking-wider">
+                <p className={`text-xs sm:text-sm font-bold mt-1 uppercase tracking-wider ${selected ? "text-[#33D097]" : "text-[#9298A0]"}`}>
                     {company.symbol}
                 </p>
             </div>
@@ -48,8 +48,8 @@ function CompanyCard({
                         duration-200
                         ${
                             selected
-                                ? "bg-[#2563EB] border-[#2563EB] text-white shadow-sm"
-                                : "border-slate-300 bg-white"
+                                ? "bg-[#33D097] border-[#33D097] text-[#0C0E14] shadow-sm"
+                                : "border-[#222A38] bg-[#151921]"
                         }
                     `}
                 >
