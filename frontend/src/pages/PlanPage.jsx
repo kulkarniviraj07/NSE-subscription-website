@@ -117,7 +117,7 @@ function PlanPage() {
                         order.currency,
 
                     name:
-                        "PureFrames",
+                        "EquityAlerts",
 
                     description:
                         "Premium Subscription",

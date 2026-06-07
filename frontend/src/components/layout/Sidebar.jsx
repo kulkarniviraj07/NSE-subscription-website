@@ -83,11 +83,11 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) 
                 <div className="h-16 flex items-center justify-between px-5 border-b border-[#222A38]">
                     <div className="flex items-center gap-3 overflow-hidden">
                         <div className="min-w-10 min-h-10 rounded-xl bg-[#151921] border border-[#222A38] flex items-center justify-center text-[#33D097] shadow-sm">
-                            <span className="font-extrabold text-base tracking-wider">PF</span>
+                            <span className="font-extrabold text-base tracking-wider">EA</span>
                         </div>
                         {!collapsed && (
                             <span className="font-bold text-lg tracking-tight text-[#E3E5EA]">
-                                PureFrames
+                                EquityAlerts
                             </span>
                         )}
                     </div>

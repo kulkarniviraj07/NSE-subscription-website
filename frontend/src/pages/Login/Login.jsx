@@ -6,7 +6,7 @@ import Button from "../../components/ui/Button";
 import { MarketChartBackground } from "../../components/common/MarketChartBackground";
 
 /**
- * High-fidelity, dual-step OTP Login Page for PureFrames.
+ * High-fidelity, dual-step OTP Login Page for EquityAlerts.
  */
 export function Login() {
     const { login, verifyLogin } = useAuth();
@@ -107,7 +107,7 @@ export function Login() {
                     {/* Brand Logo Header */}
                     <div className="flex flex-col items-center text-center">
                         <div className="w-16 h-16 bg-[#151921] border border-[#222A38] rounded-2xl flex items-center justify-center mb-6 shadow-lg glow-cyan">
-                            <span className="font-extrabold text-2xl text-brand-cyan">PF</span>
+                            <span className="font-extrabold text-2xl text-brand-cyan">EA</span>
                         </div>
 
                         <h1 className="text-3xl font-extrabold text-[#E3E5EA] tracking-tight">
@@ -237,7 +237,7 @@ export function Login() {
                             <div className="space-y-1">
                                 <div className="flex justify-between text-[11px] font-bold text-[#E3E5EA]">
                                     <span>NIFTY 50 INDEX</span>
-                                    <span className="text-brand-cyan">▲ +1.24%</span>
+                                    <span className="text-brand-cyan">ACTIVE</span>
                                 </div>
                                 <div className="w-full h-1.5 bg-[#0C0E14] rounded-full overflow-hidden border border-[#222A38]">
                                     <div className="h-full bg-brand-cyan w-[72%] rounded-full animate-pulse" />
@@ -246,7 +246,7 @@ export function Login() {
                             <div className="space-y-1">
                                 <div className="flex justify-between text-[11px] font-bold text-[#E3E5EA]">
                                     <span>BSE SENSEX</span>
-                                    <span className="text-brand-cyan">▲ +1.12%</span>
+                                    <span className="text-brand-cyan">ACTIVE</span>
                                 </div>
                                 <div className="w-full h-1.5 bg-[#0C0E14] rounded-full overflow-hidden border border-[#222A38]">
                                     <div className="h-full bg-brand-cyan w-[68%] rounded-full" />

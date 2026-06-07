@@ -142,10 +142,6 @@ export function CompanySelection() {
                             const tracked = isTracked(compId);
                             const itemLoading = actionLoading === compId;
 
-                            const mockPrice = (((company.id || 10) % 200) * 12 + 450).toFixed(2);
-                            const mockChange = ((company.id || 10) % 2 === 0) ? "+1.4%" : "-0.7%";
-                            const isPositive = ((company.id || 10) % 2 === 0);
-
                             return (
                                 <div
                                     key={compId}
@@ -173,11 +169,8 @@ export function CompanySelection() {
                                     {/* Stock Metrics and selection toggle */}
                                     <div className="flex items-center gap-4 shrink-0 text-right">
                                         <div>
-                                            <span className="block text-xs font-bold text-[#E3E5EA]">
-                                                ₹{mockPrice}
-                                            </span>
-                                            <span className={`block text-[10px] font-bold ${isPositive ? "text-[#33D097]" : "text-[#EF4444]"}`}>
-                                                {isPositive ? "▲" : "▼"} {mockChange}
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-[#0C0E14] text-[#33D097] border border-[#222A38]">
+                                                Monitoring Active
                                             </span>
                                         </div>
 

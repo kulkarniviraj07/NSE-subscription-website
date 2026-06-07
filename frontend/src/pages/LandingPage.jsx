@@ -24,10 +24,10 @@ function LandingPage() {
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#151921] border border-[#222A38] flex items-center justify-center text-[#33D097] shadow-sm">
-                            <span className="font-extrabold text-base tracking-wider">PF</span>
+                            <span className="font-extrabold text-base tracking-wider">EA</span>
                         </div>
                         <span className="font-bold text-lg tracking-tight text-[#E3E5EA]">
-                            PureFrames
+                            EquityAlerts
                         </span>
                     </div>
 
@@ -54,44 +54,40 @@ function LandingPage() {
             <div className="bg-[#151921]/90 backdrop-blur-sm border-b border-[#222A38] py-2 overflow-hidden relative z-30 font-mono text-[11px] tracking-wider select-none">
                 <div className="animate-marquee flex gap-8 whitespace-nowrap">
                     {[
-                        { symbol: "RELIANCE", price: "2,450.80", change: "+2.4%", up: true },
-                        { symbol: "TCS", price: "3,892.40", change: "+1.8%", up: true },
-                        { symbol: "INFY", price: "1,450.35", change: "-0.7%", up: false },
-                        { symbol: "HDFCBANK", price: "1,675.20", change: "+1.1%", up: true },
-                        { symbol: "ICICIBANK", price: "1,124.60", change: "+1.5%", up: true },
-                        { symbol: "BHARTIARTL", price: "1,220.15", change: "-0.4%", up: false },
-                        { symbol: "SBIN", price: "782.40", change: "+2.0%", up: true },
-                        { symbol: "LICI", price: "982.10", change: "-1.2%", up: false },
-                        { symbol: "ITC", price: "432.80", change: "+0.8%", up: true },
-                        { symbol: "KOTAKBANK", price: "1,745.90", change: "-0.5%", up: false }
+                        { symbol: "RELIANCE", status: "Tracking Active" },
+                        { symbol: "TCS", status: "Real-Time Monitoring" },
+                        { symbol: "INFY", status: "Tracking Active" },
+                        { symbol: "HDFCBANK", status: "Real-Time Monitoring" },
+                        { symbol: "ICICIBANK", status: "Tracking Active" },
+                        { symbol: "BHARTIARTL", status: "Real-Time Monitoring" },
+                        { symbol: "SBIN", status: "Tracking Active" },
+                        { symbol: "LICI", status: "Real-Time Monitoring" },
+                        { symbol: "ITC", status: "Tracking Active" },
+                        { symbol: "KOTAKBANK", status: "Real-Time Monitoring" }
                     ].map((item, idx) => (
                         <span key={idx} className="flex items-center gap-1.5 px-4 border-r border-[#222A38]/40">
                             <span className="text-[#E3E5EA] font-bold">{item.symbol}</span>
-                            <span className="text-[#9298A0]">{item.price}</span>
-                            <span className={item.up ? "text-[#33D097] font-bold" : "text-[#EF4444] font-bold"}>
-                                {item.up ? "▲" : "▼"} {item.change}
-                            </span>
+                            <span className="w-1.5 h-1.5 bg-[#33D097] rounded-full animate-pulse" />
+                            <span className="text-brand-cyan font-bold">{item.status}</span>
                         </span>
                     ))}
                     {/* Duplicate for infinite marquee scrolling effect */}
                     {[
-                        { symbol: "RELIANCE", price: "2,450.80", change: "+2.4%", up: true },
-                        { symbol: "TCS", price: "3,892.40", change: "+1.8%", up: true },
-                        { symbol: "INFY", price: "1,450.35", change: "-0.7%", up: false },
-                        { symbol: "HDFCBANK", price: "1,675.20", change: "+1.1%", up: true },
-                        { symbol: "ICICIBANK", price: "1,124.60", change: "+1.5%", up: true },
-                        { symbol: "BHARTIARTL", price: "1,220.15", change: "-0.4%", up: false },
-                        { symbol: "SBIN", price: "782.40", change: "+2.0%", up: true },
-                        { symbol: "LICI", price: "982.10", change: "-1.2%", up: false },
-                        { symbol: "ITC", price: "432.80", change: "+0.8%", up: true },
-                        { symbol: "KOTAKBANK", price: "1,745.90", change: "-0.5%", up: false }
+                        { symbol: "RELIANCE", status: "Tracking Active" },
+                        { symbol: "TCS", status: "Real-Time Monitoring" },
+                        { symbol: "INFY", status: "Tracking Active" },
+                        { symbol: "HDFCBANK", status: "Real-Time Monitoring" },
+                        { symbol: "ICICIBANK", status: "Tracking Active" },
+                        { symbol: "BHARTIARTL", status: "Real-Time Monitoring" },
+                        { symbol: "SBIN", status: "Tracking Active" },
+                        { symbol: "LICI", status: "Real-Time Monitoring" },
+                        { symbol: "ITC", status: "Tracking Active" },
+                        { symbol: "KOTAKBANK", status: "Real-Time Monitoring" }
                     ].map((item, idx) => (
                         <span key={`dup-${idx}`} className="flex items-center gap-1.5 px-4 border-r border-[#222A38]/40">
                             <span className="text-[#E3E5EA] font-bold">{item.symbol}</span>
-                            <span className="text-[#9298A0]">{item.price}</span>
-                            <span className={item.up ? "text-[#33D097] font-bold" : "text-[#EF4444] font-bold"}>
-                                {item.up ? "▲" : "▼"} {item.change}
-                            </span>
+                            <span className="w-1.5 h-1.5 bg-[#33D097] rounded-full animate-pulse" />
+                            <span className="text-brand-cyan font-bold">{item.status}</span>
                         </span>
                     ))}
                 </div>
@@ -133,8 +129,7 @@ function LandingPage() {
                             <span className="text-[10px] bg-[#33D097]/10 text-[#33D097] border border-[#33D097]/20 px-2 py-0.5 rounded font-bold">LIVE METRICS</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs font-mono">
-                            <span className="text-[#9298A0]">LTP: <strong className="text-[#E3E5EA]">2,450.80</strong></span>
-                            <span className="text-[#33D097]">CHG: <strong>+58.30 (+2.44%)</strong></span>
+                            <span className="text-brand-cyan font-bold">NSE/BSE Monitoring Active</span>
                         </div>
                     </div>
                     {/* Main area: Chart on left, Order depth on right */}
@@ -199,41 +194,34 @@ function LandingPage() {
                         {/* Order Depth Sidebar */}
                         <div className="p-4 bg-[#151921] flex flex-col justify-between text-xs font-mono">
                             <div>
-                                <span className="block text-[10px] text-[#6B7280] font-bold uppercase tracking-wider mb-3">Order Book Depth</span>
-                                <div className="space-y-1.5">
-                                    {/* Bids (Greens) */}
-                                    <div className="flex items-center justify-between text-[#33D097]">
-                                        <span>2,450.70</span>
-                                        <span>4,510</span>
+                                <span className="block text-[10px] text-[#6B7280] font-bold uppercase tracking-wider mb-3">Alert Stream Status</span>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[#E3E5EA] text-[10px]">
+                                        <span>BSE Feed</span>
+                                        <span className="text-[#33D097] font-semibold bg-[#33D097]/10 px-1.5 py-0.5 rounded">CONNECTED</span>
                                     </div>
-                                    <div className="flex items-center justify-between text-[#33D097]">
-                                        <span>2,450.65</span>
-                                        <span>12,850</span>
+                                    <div className="flex justify-between items-center text-[#E3E5EA] text-[10px]">
+                                        <span>NSE Feed</span>
+                                        <span className="text-[#33D097] font-semibold bg-[#33D097]/10 px-1.5 py-0.5 rounded">CONNECTED</span>
                                     </div>
-                                    <div className="flex items-center justify-between text-[#33D097]">
-                                        <span>2,450.60</span>
-                                        <span>15,310</span>
+                                    <div className="flex justify-between items-center text-[#E3E5EA] text-[10px]">
+                                        <span>WhatsApp Dispatch</span>
+                                        <span className="text-[#33D097] font-semibold bg-[#33D097]/10 px-1.5 py-0.5 rounded">ACTIVE</span>
                                     </div>
-                                    {/* Divider */}
-                                    <div className="border-t border-[#222A38] my-1" />
-                                    {/* Asks (Reds) */}
-                                    <div className="flex items-center justify-between text-[#EF4444]">
-                                        <span>2,450.80</span>
-                                        <span>8,150</span>
+                                    <div className="border-t border-[#222A38] my-1.5" />
+                                    <div className="flex justify-between items-center text-[#9298A0] text-[10px]">
+                                        <span>Watchlist Active</span>
+                                        <span className="text-brand-cyan">SECURE</span>
                                     </div>
-                                    <div className="flex items-center justify-between text-[#EF4444]">
-                                        <span>2,450.85</span>
-                                        <span>6,320</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-[#EF4444]">
-                                        <span>2,450.90</span>
-                                        <span>9,430</span>
+                                    <div className="flex justify-between items-center text-[#9298A0] text-[10px]">
+                                        <span>Real-Time Check</span>
+                                        <span className="text-brand-cyan">ENABLED</span>
                                     </div>
                                 </div>
                             </div>
                             <div className="pt-4 border-t border-[#222A38] mt-4 flex flex-col gap-1 text-[10px] text-[#6B7280]">
-                                <span>SPREAD: 0.10 (0.00%)</span>
-                                <span>VOL: 23.89M</span>
+                                <span>MONITORING: 200+ SYMBOLS</span>
+                                <span>LATENCY: SUB-SECOND</span>
                             </div>
                         </div>
                     </div>
@@ -273,7 +261,7 @@ function LandingPage() {
                     Process Flow
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-black text-[#E3E5EA] mt-4 tracking-tight">
-                    How PureFrames Works
+                    How EquityAlerts Works
                 </h2>
                 <p className="text-[#9298A0] text-sm sm:text-base mt-2 max-w-md mx-auto">
                     Three simple steps to automate your investment monitoring.
@@ -305,7 +293,7 @@ function LandingPage() {
                                 We Monitor Filings
                             </h3>
                             <p className="text-sm text-[#9298A0] leading-relaxed">
-                                PureFrames continuously watches corporate disclosures.
+                                EquityAlerts continuously watches corporate disclosures.
                             </p>
                         </div>
                     </div>
@@ -327,14 +315,14 @@ function LandingPage() {
                 </div>
             </section>
 
-            {/* SECTION 4 - WHY PUREFRAMES */}
+            {/* SECTION 4 - WHY EQUITYALERTS */}
             <section id="features" className="py-20 bg-[#151921]/20 border-y border-[#222A38] relative z-10">
                 <div className="max-w-7xl mx-auto px-6 text-center">
                     <span className="text-xs font-bold text-[#33D097] uppercase tracking-widest bg-[#33D097]/5 px-3 py-1 rounded-full border border-[#33D097]/10">
                         Benefits
                     </span>
                     <h2 className="text-3xl sm:text-4xl font-black text-[#E3E5EA] mt-4 tracking-tight">
-                        Why Investors Use PureFrames
+                        Why Investors Use EquityAlerts
                     </h2>
                     <p className="text-[#9298A0] text-sm sm:text-base mt-2 max-w-md mx-auto">
                         A robust, lightweight alerts terminal for modern market participants.
@@ -512,10 +500,10 @@ function LandingPage() {
                     <div className="max-w-xs space-y-3">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg bg-[#151921] border border-[#222A38] flex items-center justify-center text-[#33D097] shadow-sm">
-                                <span className="font-extrabold text-sm tracking-wider">PF</span>
+                                <span className="font-extrabold text-sm tracking-wider">EA</span>
                             </div>
                             <span className="font-bold text-base tracking-tight text-[#E3E5EA]">
-                                PureFrames
+                                EquityAlerts
                             </span>
                         </div>
                         <p className="text-[11px] text-[#6B7280] leading-relaxed">
@@ -536,18 +524,28 @@ function LandingPage() {
                         </div>
                         <div className="space-y-3">
                             <span className="block text-[10px] text-[#6B7280] uppercase tracking-wider">Support</span>
-                            <a href="mailto:support@pureframes.com" className="block hover:text-[#33D097] transition">Contact</a>
+                            <a href="mailto:support@equityalerts.ai" className="block hover:text-[#33D097] transition">Contact</a>
                         </div>
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto px-6 mt-12 pt-6 border-t border-[#222A38]/50 flex flex-col md:flex-row justify-between gap-4">
+                <div className="max-w-7xl mx-auto px-6 mt-12 pt-6 border-t border-[#222A38]/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <p className="text-[10px] text-[#6B7280] leading-relaxed max-w-2xl">
-                        PureFrames provides informational alerts only and does not offer investment advice.
+                        EquityAlerts provides informational alerts only and does not offer investment advice.
                     </p>
-                    <p className="text-[10px] text-[#6B7280] shrink-0">
-                        &copy; {new Date().getFullYear()} PureFrames. All rights reserved.
-                    </p>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 shrink-0 text-[10px] text-[#6B7280]">
+                        <p>
+                            &copy; {new Date().getFullYear()} EquityAlerts. All rights reserved.
+                        </p>
+                        <span className="hidden sm:inline text-[#222A38]">•</span>
+                        <div className="flex items-center gap-3">
+                            <Link to="/privacy-policy" className="hover:text-[#33D097] transition-colors">Privacy Policy</Link>
+                            <span className="text-[#222A38]">•</span>
+                            <Link to="/terms-of-service" className="hover:text-[#33D097] transition-colors">Terms of Service</Link>
+                            <span className="text-[#222A38]">•</span>
+                            <Link to="/disclaimer" className="hover:text-[#33D097] transition-colors">Disclaimer</Link>
+                        </div>
+                    </div>
                 </div>
             </footer>
         </div>

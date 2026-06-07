@@ -1,7 +1,7 @@
 import React from "react";
 
 /**
- * Premium reusable button styled with the PureFrames color scheme.
+ * Premium reusable button styled with the EquityAlerts color scheme.
  */
 export function Button({
     children,

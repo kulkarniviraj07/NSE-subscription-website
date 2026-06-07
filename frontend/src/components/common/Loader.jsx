@@ -14,7 +14,7 @@ export function Loader({ fullScreen = false }) {
                         <div className="absolute h-14 w-14 rounded-full border-4 border-t-brand-cyan border-r-transparent border-b-transparent border-l-transparent animate-spin" />
                     </div>
                     <span className="text-xs font-bold text-brand-light tracking-widest uppercase">
-                        Loading PureFrames
+                        Loading EquityAlerts
                     </span>
                 </div>
             </div>

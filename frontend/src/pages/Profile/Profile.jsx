@@ -49,7 +49,7 @@ export function Profile() {
 
                 <div className="space-y-1">
                     <h2 className="text-xl font-extrabold text-brand-light tracking-tight">
-                        {user?.name || "PureFrames User"}
+                        {user?.name || "EquityAlerts User"}
                     </h2>
                     <span className="block text-xs font-semibold text-brand-slate">
                         Active Account Member
@@ -67,7 +67,7 @@ export function Profile() {
                     <div>
                         <span className="block text-brand-slate font-medium font-sans">Full Name</span>
                         <span className="font-bold text-[#E3E5EA] mt-0.5 block truncate">
-                            {user?.name || "PureFrames User"}
+                            {user?.name || "EquityAlerts User"}
                         </span>
                     </div>
                     <div>

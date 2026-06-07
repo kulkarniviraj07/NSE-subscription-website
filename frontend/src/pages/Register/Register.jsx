@@ -6,7 +6,7 @@ import Button from "../../components/ui/Button";
 import { MarketChartBackground } from "../../components/common/MarketChartBackground";
 
 /**
- * High-fidelity, dual-step registration page for PureFrames.
+ * High-fidelity, dual-step registration page for EquityAlerts.
  */
 export function Register() {
     const { register, verifyRegister } = useAuth();
@@ -113,7 +113,7 @@ export function Register() {
                     {/* Header */}
                     <div className="flex flex-col items-center text-center">
                         <div className="w-16 h-16 bg-[#151921] border border-[#222A38] rounded-2xl flex items-center justify-center mb-6 shadow-lg glow-cyan">
-                            <span className="font-extrabold text-2xl text-brand-cyan">PF</span>
+                            <span className="font-extrabold text-2xl text-brand-cyan">EA</span>
                         </div>
 
                         <h1 className="text-3xl font-extrabold text-[#E3E5EA] tracking-tight">
@@ -270,8 +270,8 @@ export function Register() {
                             <div className="space-y-3">
                                 <div className="p-3 bg-[#0C0E14] border border-[#222A38] rounded-2xl relative shadow-md">
                                     <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">PF</div>
-                                        <span className="text-[11px] font-bold text-[#E3E5EA]">PureFrames alerts</span>
+                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
+                                        <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts alerts</span>
                                         <span className="text-[9px] text-[#6B7280] ml-auto">Just now</span>
                                     </div>
                                     <p className="text-[10px] text-brand-light leading-relaxed">
@@ -281,8 +281,8 @@ export function Register() {
 
                                 <div className="p-3 bg-[#0C0E14] border border-[#222A38] rounded-2xl relative shadow-md opacity-80">
                                     <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">PF</div>
-                                        <span className="text-[11px] font-bold text-[#E3E5EA]">PureFrames alerts</span>
+                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
+                                        <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts alerts</span>
                                         <span className="text-[9px] text-[#6B7280] ml-auto">5m ago</span>
                                     </div>
                                     <p className="text-[10px] text-brand-light leading-relaxed">

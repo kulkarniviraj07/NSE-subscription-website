@@ -69,7 +69,7 @@ export function PlanSelection() {
                 key: import.meta.env.VITE_RAZORPAY_KEY_ID,
                 amount: order.amount,
                 currency: order.currency,
-                name: "PureFrames",
+                name: "EquityAlerts",
                 description: "Premium Subscription",
                 order_id: order.id,
                 handler: async function (response) {

@@ -1,7 +1,7 @@
 import React from "react";
 
 /**
- * Standard data-empty visualizer styled with the PureFrames design rules.
+ * Standard data-empty visualizer styled with the EquityAlerts design rules.
  */
 export function EmptyState({
     title = "No data available",

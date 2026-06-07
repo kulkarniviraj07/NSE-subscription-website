@@ -70,8 +70,7 @@ export function Dashboard() {
                 <div className="p-4 bg-[#151921] border border-[#222A38] rounded-2xl shadow-sm">
                     <span className="block text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">NIFTY 50</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-base font-bold text-[#E3E5EA]">24,115.50</span>
-                        <span className="text-[#33D097] font-bold">▲ +1.2%</span>
+                        <span className="text-xs font-bold text-brand-cyan">Live Tracking Enabled</span>
                     </div>
                     {/* Mock sparkline */}
                     <svg className="w-full h-8 mt-2 text-[#33D097]" stroke="currentColor" fill="none" strokeWidth="1.5">
@@ -81,8 +80,7 @@ export function Dashboard() {
                 <div className="p-4 bg-[#151921] border border-[#222A38] rounded-2xl shadow-sm">
                     <span className="block text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">BSE SENSEX</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-base font-bold text-[#E3E5EA]">79,250.20</span>
-                        <span className="text-[#33D097] font-bold">▲ +1.1%</span>
+                        <span className="text-xs font-bold text-brand-cyan">Real-Time Monitoring</span>
                     </div>
                     <svg className="w-full h-8 mt-2 text-[#33D097]" stroke="currentColor" fill="none" strokeWidth="1.5">
                         <path d="M 0 18 Q 20 5 40 15 T 80 10 T 120 5" />
@@ -91,8 +89,7 @@ export function Dashboard() {
                 <div className="p-4 bg-[#151921] border border-[#222A38] rounded-2xl shadow-sm">
                     <span className="block text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">BANK NIFTY</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-base font-bold text-[#E3E5EA]">52,430.80</span>
-                        <span className="text-[#33D097] font-bold">▲ +0.9%</span>
+                        <span className="text-xs font-bold text-brand-cyan">NSE/BSE Monitoring Active</span>
                     </div>
                     <svg className="w-full h-8 mt-2 text-[#33D097]" stroke="currentColor" fill="none" strokeWidth="1.5">
                         <path d="M 0 22 Q 20 15 40 25 T 80 10 T 120 15" />
@@ -101,10 +98,9 @@ export function Dashboard() {
                 <div className="p-4 bg-[#151921] border border-[#222A38] rounded-2xl shadow-sm col-span-2 md:col-span-1">
                     <span className="block text-[10px] text-[#6B7280] font-bold uppercase tracking-wider">INDIA VIX</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-base font-bold text-[#E3E5EA]">13.45</span>
-                        <span className="text-[#EF4444] font-bold">▼ -3.4%</span>
+                        <span className="text-xs font-bold text-brand-cyan">Announcement Tracking Active</span>
                     </div>
-                    <svg className="w-full h-8 mt-2 text-[#EF4444]" stroke="currentColor" fill="none" strokeWidth="1.5">
+                    <svg className="w-full h-8 mt-2 text-[#33D097]" stroke="currentColor" fill="none" strokeWidth="1.5">
                         <path d="M 0 10 Q 20 20 40 15 T 80 22 T 120 10" />
                     </svg>
                 </div>
@@ -150,14 +146,9 @@ export function Dashboard() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4 shrink-0 text-right">
-                                            <div>
-                                                <span className="block text-xs font-bold text-[#E3E5EA]">
-                                                    ₹{(((c.id || 10) % 200) * 12 + 450).toFixed(2)}
-                                                </span>
-                                                <span className={`block text-[10px] font-bold ${((c.id || 10) % 2 === 0) ? "text-[#33D097]" : "text-[#EF4444]"}`}>
-                                                    {((c.id || 10) % 2 === 0) ? "▲ +1.5%" : "▼ -0.8%"}
-                                                </span>
-                                            </div>
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase bg-[#151921] text-[#33D097] border border-[#222A38]">
+                                                Tracking Active
+                                            </span>
                                         </div>
                                     </div>
                                 ))}

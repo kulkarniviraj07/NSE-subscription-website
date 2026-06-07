@@ -21,6 +21,11 @@ import Profile from "../pages/Profile/Profile";
 import PlanSelection from "../pages/Subscription/PlanSelection";
 import NotFound from "../pages/NotFound/NotFound";
 
+// Legal Pages
+import PrivacyPolicy from "../pages/Legal/PrivacyPolicy";
+import TermsOfService from "../pages/Legal/TermsOfService";
+import Disclaimer from "../pages/Legal/Disclamer";
+
 // Components
 import Loader from "../components/common/Loader";
 
@@ -169,6 +174,22 @@ export function AppRoutes() {
                     />
                 </Route>
 
+                {/* Legal Pages */}
+                <Route
+                    path="/privacy-policy"
+                    element={<PrivacyPolicy />}
+                />
+
+                <Route
+                    path="/terms-of-service"
+                    element={<TermsOfService />}
+                />
+
+                <Route
+                    path="/disclaimer"
+                    element={<Disclaimer />}
+                />
+
                 {/* 404 */}
                 <Route
                     path="*"
@@ -176,7 +197,6 @@ export function AppRoutes() {
                 />
 
             </Routes>
-
         </BrowserRouter>
 
     );
