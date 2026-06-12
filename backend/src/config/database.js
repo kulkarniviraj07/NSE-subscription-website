@@ -34,11 +34,19 @@ async function testConnection() {
             "SELECT NOW()"
         );
 
-        // Idempotent safety net for migration 008 (OTP brute-force lockout)
-        await client.query(
-            `ALTER TABLE otp_verifications
-             ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`
-        );
+        // Idempotent safety net for migration 008 (OTP brute-force lockout).
+        // Wrapped separately so a missing table on first deploy doesn't crash startup.
+        try {
+            await client.query(
+                `ALTER TABLE otp_verifications
+                 ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`
+            );
+        } catch (alterErr) {
+            console.warn(
+                "Schema patch skipped (table not ready yet):",
+                alterErr.message
+            );
+        }
 
         client.release();
 

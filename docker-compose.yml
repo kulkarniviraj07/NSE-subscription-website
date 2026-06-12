@@ -65,6 +65,7 @@ services:
       - VERIFY_TOKEN=${VERIFY_TOKEN:-nse_bot_secret_2024}
       - FLASK_PORT=5000
       - BOT_DB_PATH=/app/bot_sqlite/bot_data.db
+      - PORTAL_URL=${PORTAL_URL:-}
     ports:
       - "5000:5000"
     volumes:

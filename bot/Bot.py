@@ -31,7 +31,7 @@ def add_ngrok_header(response):
 
 # ── Constants ─────────────────────────────────────────────────
 
-PORTAL_URL = "https://sensitive-fortyish-phung.ngrok-free.dev/portal"
+PORTAL_URL = os.environ.get("PORTAL_URL", "http://localhost:5000/portal")
 
 WELCOME_MSG = (
     "👋 Welcome to *NSE Filing Alerts Bot*!\n\n"
@@ -429,7 +429,7 @@ import requests as req_lib
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 def proxy_api(path):
     """Forward /api/* requests from the portal to the local website backend (port 3001)."""
-    target_url = f"http://localhost:3001/api/{path}"
+    target_url = f"http://backend:3001/api/{path}"
     try:
         resp = req_lib.request(
             method=request.method,
