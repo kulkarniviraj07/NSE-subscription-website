@@ -1,6 +1,9 @@
 const fs = require("fs");
+const nodePath = require("path");
 
 const axios = require("axios");
+
+const STORAGE_DIR = process.env.PDF_STORAGE_PATH || nodePath.join(__dirname, "../../storage/pdf");
 
 async function downloadPdf(
     url,
@@ -47,8 +50,6 @@ async function downloadPdf(
 
         });
 
-    const path =
-        `storage/pdf/${filename}`;
     if (
         response.status !== 200
     ) {
@@ -58,8 +59,11 @@ async function downloadPdf(
         );
 
     }
+
+    fs.mkdirSync(STORAGE_DIR, { recursive: true });
+    const filePath = nodePath.join(STORAGE_DIR, filename);
     fs.writeFileSync(
-        path,
+        filePath,
         response.data
     );
     console.log(
