@@ -37,6 +37,11 @@ async function ensureSchema() {
         END $$;
     `);
 
+    // Ensure pdf_url has a standalone unique constraint (old schema used composite unique)
+    await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS announcements_pdf_url_key ON announcements(pdf_url);
+    `);
+
     // ── company_state ─────────────────────────────────────────────────────────
     await db.query(`
         CREATE TABLE IF NOT EXISTS company_state (
