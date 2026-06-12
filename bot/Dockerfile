@@ -34,6 +34,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy python source files
 COPY bot/*.py ./
 
+# Copy database migrations and seeds
+COPY database/ /app/nse-website/subscription-portal/database/
+
 # Copy the built frontend dist to the exact path Flask expects
 COPY --from=frontend-builder /build/dist /app/nse-website/subscription-portal/frontend/dist
 
