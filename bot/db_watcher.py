@@ -368,7 +368,6 @@ def deliver_backfill_for_subscribers():
     For every active subscriber, ensure they have the latest filings for each
     company they're subscribed to. Idempotent — safe to run every poll.
     """
-    LATEST_PER_COMPANY = 3
     try:
         sub_conn = psycopg2.connect(
             host=config.DB_HOST, port=config.DB_PORT,
@@ -396,18 +395,18 @@ def deliver_backfill_for_subscribers():
             )
 
             sub_cur.execute("""
-                SELECT c.symbol, c.company_name
+                SELECT c.symbol, c.company_name, uc.created_at
                 FROM user_companies uc
                 JOIN companies c ON c.id = uc.company_id
                 JOIN users u ON u.id = uc.user_id
                 JOIN subscriptions s ON s.user_id = u.id
                 WHERE (u.mobile = %s OR u.mobile = %s) AND s.status = 'ACTIVE';
             """, (phone, normalized_phone))
-            subs = [(r[0], r[1]) for r in sub_cur.fetchall()]
+            subs = [(r[0], r[1], r[2]) for r in sub_cur.fetchall()]
             if not subs:
                 continue
 
-            for symbol, db_company_name in subs:
+            for symbol, db_company_name, subscribed_at in subs:
                 symbol = symbol.upper().strip()
                 name = config.COMPANY_LIST.get(symbol, db_company_name or symbol)
                 pg_cur.execute("""
@@ -415,10 +414,11 @@ def deliver_backfill_for_subscribers():
                     FROM announcements
                     WHERE UPPER(company_symbol) = UPPER(%s)
                       AND download_status = 'DOWNLOADED'
-                    ORDER BY announcement_time DESC
-                    LIMIT 15
-                """, (symbol,))
-                rows = _dedup_by_filename(pg_cur.fetchall())[:LATEST_PER_COMPANY]
+                      AND announcement_time > %s
+                    ORDER BY announcement_time ASC
+                    LIMIT 50
+                """, (symbol, subscribed_at))
+                rows = _dedup_by_filename(pg_cur.fetchall())
 
                 for row in rows:
                     file_path = os.path.join(
