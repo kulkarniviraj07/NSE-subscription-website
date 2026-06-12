@@ -37,6 +37,9 @@ const userCompanyRoutes =
 
 const app =
     express();
+
+app.set("trust proxy", 1);
+
 const paymentRoutes =
     require(
         "./routes/paymentRoutes"
