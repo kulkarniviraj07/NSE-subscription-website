@@ -45,9 +45,22 @@ async function ensureSchema() {
     // ── company_state ─────────────────────────────────────────────────────────
     await db.query(`
         CREATE TABLE IF NOT EXISTS company_state (
-          symbol       VARCHAR(20) PRIMARY KEY,
-          last_seen_at TIMESTAMP NOT NULL
+          symbol                VARCHAR(20) PRIMARY KEY,
+          last_announcement_time TIMESTAMP NOT NULL
         );
+    `);
+
+    // Rename legacy column created with wrong name (idempotent)
+    await db.query(`
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='company_state' AND column_name='last_seen_at'
+            ) THEN
+                ALTER TABLE company_state RENAME COLUMN last_seen_at TO last_announcement_time;
+            END IF;
+        END $$;
     `);
 
     // ── download_jobs ─────────────────────────────────────────────────────────
