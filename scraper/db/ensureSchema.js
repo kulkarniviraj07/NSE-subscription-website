@@ -1,23 +1,24 @@
 const db =
     require("./connection");
 
-// Idempotent upgrades needed by the retry pipeline.
+// Idempotent schema setup — must match every repository's column names exactly.
 async function ensureSchema() {
-    // Automate core table creation
+
+    // ── announcements ─────────────────────────────────────────────────────────
     await db.query(`
         CREATE TABLE IF NOT EXISTS announcements (
-          id SERIAL PRIMARY KEY,
-          company_symbol VARCHAR(20) NOT NULL,
-          title TEXT,
-          pdf_url TEXT NOT NULL UNIQUE,
-          local_path TEXT,
+          id               SERIAL PRIMARY KEY,
+          company_symbol   VARCHAR(20) NOT NULL,
+          title            TEXT,
+          pdf_url          TEXT NOT NULL UNIQUE,
+          local_path       TEXT,
           announcement_time TIMESTAMP,
-          download_status VARCHAR(20) DEFAULT 'PENDING',
-          created_at TIMESTAMP DEFAULT NOW()
+          download_status  VARCHAR(20) DEFAULT 'PENDING',
+          created_at       TIMESTAMP DEFAULT NOW()
         );
     `);
 
-    // Rename legacy columns created with wrong names (idempotent via DO block)
+    // Rename legacy columns created with wrong names (idempotent)
     await db.query(`
         DO $$
         BEGIN
@@ -35,112 +36,127 @@ async function ensureSchema() {
             END IF;
         END $$;
     `);
+
+    // ── company_state ─────────────────────────────────────────────────────────
     await db.query(`
         CREATE TABLE IF NOT EXISTS company_state (
-          symbol VARCHAR(20) PRIMARY KEY,
+          symbol       VARCHAR(20) PRIMARY KEY,
           last_seen_at TIMESTAMP NOT NULL
         );
     `);
+
+    // ── download_jobs ─────────────────────────────────────────────────────────
+    // downloadJobRepository uses: url, filename, status, updated_at
     await db.query(`
         CREATE TABLE IF NOT EXISTS download_jobs (
-          id SERIAL PRIMARY KEY,
-          announcement_id INTEGER REFERENCES announcements(id),
-          pdf_url TEXT NOT NULL,
-          status VARCHAR(20) DEFAULT 'PENDING',
-          retry_count INTEGER DEFAULT 0,
-          claimed_by VARCHAR(100),
+          id         SERIAL PRIMARY KEY,
+          url        TEXT NOT NULL,
+          filename   TEXT,
+          status     VARCHAR(20) DEFAULT 'PENDING',
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         );
     `);
+
+    // Rename pdf_url -> url on tables created with the old schema
+    await db.query(`
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='download_jobs' AND column_name='pdf_url'
+            ) THEN
+                ALTER TABLE download_jobs RENAME COLUMN pdf_url TO url;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='download_jobs' AND column_name='filename'
+            ) THEN
+                ALTER TABLE download_jobs ADD COLUMN filename TEXT;
+            END IF;
+        END $$;
+    `);
+
     await db.query(`
         CREATE INDEX IF NOT EXISTS idx_download_jobs_status ON download_jobs(status);
     `);
+
+    // ── failed_jobs ───────────────────────────────────────────────────────────
+    // failedJobRepository uses: url, filename, retries, last_retry_at
     await db.query(`
         CREATE TABLE IF NOT EXISTS failed_jobs (
-          id SERIAL PRIMARY KEY,
-          announcement_id INTEGER REFERENCES announcements(id),
-          pdf_url TEXT,
-          error_message TEXT,
-          retry_count INTEGER DEFAULT 0,
-          created_at TIMESTAMP DEFAULT NOW()
+          id           SERIAL PRIMARY KEY,
+          url          TEXT UNIQUE,
+          filename     TEXT,
+          retries      INTEGER NOT NULL DEFAULT 0,
+          last_retry_at TIMESTAMPTZ,
+          created_at   TIMESTAMP DEFAULT NOW()
         );
     `);
+
+    // Rename pdf_url -> url on tables created with the old schema
+    await db.query(`
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='failed_jobs' AND column_name='pdf_url'
+            ) THEN
+                -- Dedupe first so the rename doesn't violate the unique constraint
+                DELETE FROM failed_jobs a
+                USING failed_jobs b
+                WHERE a.id > b.id AND a.pdf_url = b.pdf_url;
+
+                ALTER TABLE failed_jobs RENAME COLUMN pdf_url TO url;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='failed_jobs' AND column_name='filename'
+            ) THEN
+                ALTER TABLE failed_jobs ADD COLUMN filename TEXT;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='failed_jobs' AND column_name='retries'
+            ) THEN
+                ALTER TABLE failed_jobs ADD COLUMN retries INTEGER NOT NULL DEFAULT 0;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='failed_jobs' AND column_name='last_retry_at'
+            ) THEN
+                ALTER TABLE failed_jobs ADD COLUMN last_retry_at TIMESTAMPTZ;
+            END IF;
+        END $$;
+    `);
+
+    await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS failed_jobs_url_key ON failed_jobs(url);
+    `);
+
+    // ── worker_heartbeats ─────────────────────────────────────────────────────
+    // workerHeartbeatRepository uses: worker_name, last_seen
     await db.query(`
         CREATE TABLE IF NOT EXISTS worker_heartbeats (
-          worker_id VARCHAR(100) PRIMARY KEY,
-          last_seen TIMESTAMP NOT NULL,
-          status VARCHAR(20) DEFAULT 'ACTIVE'
+          worker_name VARCHAR(100) PRIMARY KEY,
+          last_seen   TIMESTAMP NOT NULL
         );
     `);
 
-    // Dedupe before adding the unique index
-    await db.query(
+    // Rename worker_id -> worker_name on tables created with the old schema
+    await db.query(`
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='worker_heartbeats' AND column_name='worker_id'
+            ) THEN
+                ALTER TABLE worker_heartbeats RENAME COLUMN worker_id TO worker_name;
+            END IF;
+        END $$;
+    `);
 
-        `
-
-DELETE FROM failed_jobs a
-
-USING failed_jobs b
-
-WHERE
-
-a.id > b.id
-
-AND
-
-a.pdf_url = b.pdf_url
-
-`
-
-    );
-
-    await db.query(
-
-        `
-
-ALTER TABLE failed_jobs
-
-ADD COLUMN IF NOT EXISTS
-
-retries INTEGER NOT NULL DEFAULT 0
-
-`
-
-    );
-
-    await db.query(
-
-        `
-
-ALTER TABLE failed_jobs
-
-ADD COLUMN IF NOT EXISTS
-
-last_retry_at TIMESTAMPTZ
-
-`
-
-    );
-
-    await db.query(
-
-        `
-
-CREATE UNIQUE INDEX IF NOT EXISTS
-
-failed_jobs_pdf_url_key
-
-ON failed_jobs(pdf_url)
-
-`
-
-    );
-
-    console.log(
-        "Schema Verified"
-    );
-
+    console.log("Schema Verified");
 }
 
 module.exports =
