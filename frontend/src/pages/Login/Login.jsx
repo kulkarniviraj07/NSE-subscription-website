@@ -30,7 +30,7 @@ export function Login() {
     };
 
     /**
-     * Phase 1: Submit Mobile Number to request SMS OTP
+     * Phase 1: Submit Mobile Number to request WhatsApp OTP
      */
     const handleSendOtp = async (e) => {
         e.preventDefault();
@@ -50,8 +50,7 @@ export function Login() {
         try {
             setLoading(true);
             await login(mobile);
-            
-            setSuccessMessage("Code dispatched successfully!");
+            setSuccessMessage("OTP sent! Check your WhatsApp for the code.");
             setStep("OTP");
         } catch (err) {
             setError(
@@ -111,11 +110,11 @@ export function Login() {
                         </div>
 
                         <h1 className="text-3xl font-extrabold text-[#E3E5EA] tracking-tight">
-                            Terminal Login
+                            Secure Login
                         </h1>
 
                         <p className="text-brand-slate text-sm mt-2 max-w-xs leading-relaxed">
-                            Access premium corporate disclosures and watchlist alerts.
+                            Access premium corporate disclosures and watchlist alerts via WhatsApp OTP.
                         </p>
                     </div>
 
@@ -147,7 +146,7 @@ export function Login() {
                                     disabled={loading}
                                     className="w-full"
                                 >
-                                    Request Terminal Passcode
+                                    Send OTP via WhatsApp
                                 </Button>
                             </form>
                         ) : (
@@ -160,7 +159,7 @@ export function Login() {
 
                                 <div className="space-y-1 text-center">
                                     <span className="text-xs text-brand-slate">
-                                        Verifying terminal access for:
+                                        Verifying connection for:
                                     </span>
                                     <span className="block text-sm font-bold text-brand-light font-mono">
                                         +91 {mobile}
@@ -168,13 +167,13 @@ export function Login() {
                                 </div>
 
                                 <Input
-                                    label="Passcode (OTP)"
+                                    label="Verification Code (OTP)"
                                     value={otp}
                                     onChange={(e) => {
                                         setOtp(e.target.value.replace(/\D/g, ""));
                                         setError("");
                                     }}
-                                    placeholder="Enter passcode"
+                                    placeholder="Enter code"
                                     type="text"
                                     maxLength="6"
                                     error={error}
@@ -204,7 +203,7 @@ export function Login() {
                                         disabled={loading}
                                         className="flex-1"
                                     >
-                                        Verify Passcode
+                                        Verify OTP
                                     </Button>
                                 </div>
                             </form>
@@ -212,74 +211,65 @@ export function Login() {
 
                         {/* Bottom registration link */}
                         <div className="mt-8 text-center text-xs text-brand-slate border-t border-brand-border/50 pt-5">
-                            Don't have a terminal license?{" "}
+                            Don't have an account?{" "}
                             <Link
                                 to="/register"
                                 className="font-bold text-brand-cyan hover:underline transition-colors animate-pulse"
                             >
-                                Register Watchlist Account
+                                Register Here
                             </Link>
                         </div>
                     </div>
                 </div>
 
-                {/* Right Card: Bloomberg-style Market Monitor Feed (Desktop Only) */}
+                {/* Right Card: Mobile WhatsApp Notification Live Simulator (Desktop Only) */}
                 <div className="hidden md:flex flex-col justify-between p-8 bg-[#151921]/60 backdrop-blur-md rounded-3xl border border-[#222A38] shadow-2xl font-mono text-xs text-[#9298A0] relative overflow-hidden">
                     <div className="absolute inset-0 bg-market-grid opacity-10 pointer-events-none" />
                     
                     <div className="space-y-6 relative z-10 text-left">
                         <div className="flex items-center justify-between border-b border-[#222A38] pb-3">
-                            <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">Terminal Feed Monitor</span>
-                            <span className="text-[9px] bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20 px-2 py-0.5 rounded font-bold">ONLINE</span>
+                            <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">WhatsApp Alert Feed</span>
+                            <span className="text-[9px] bg-[#33D097]/10 text-brand-cyan border border-[#33D097]/20 px-2 py-0.5 rounded font-bold">SIMULATOR</span>
                         </div>
 
                         <div className="space-y-4">
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[11px] font-bold text-[#E3E5EA]">
-                                    <span>NIFTY 50 INDEX</span>
-                                    <span className="text-brand-cyan">ACTIVE</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-[#0C0E14] rounded-full overflow-hidden border border-[#222A38]">
-                                    <div className="h-full bg-brand-cyan w-[72%] rounded-full animate-pulse" />
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[11px] font-bold text-[#E3E5EA]">
-                                    <span>BSE SENSEX</span>
-                                    <span className="text-brand-cyan">ACTIVE</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-[#0C0E14] rounded-full overflow-hidden border border-[#222A38]">
-                                    <div className="h-full bg-brand-cyan w-[68%] rounded-full" />
-                                </div>
-                            </div>
-                        </div>
+                            <span className="text-[10px] text-brand-textMuted font-bold uppercase tracking-wider block">Mock Dispatch Logs</span>
+                            
+                            {/* WhatsApp alert cards */}
+                            <div className="space-y-3">
+                                {step === "OTP" && (
+                                    <div className="p-3 bg-[#0C0E14] border border-brand-cyan/40 rounded-2xl relative shadow-md animate-pulse">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
+                                            <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts</span>
+                                            <span className="text-[9px] text-[#6B7280] ml-auto">Just now</span>
+                                        </div>
+                                        <div className="text-[10px] text-brand-light leading-relaxed">
+                                            🔐 <strong>EquityAlerts OTP Verification</strong><br/><br/>
+                                            Your one-time password is:<br/>
+                                            <span className="block text-brand-cyan text-sm font-bold font-mono tracking-widest mt-1 bg-[#151921] p-2 rounded text-center border border-[#222A38]">{otp || "● ● ● ● ● ●"}</span><br/>
+                                            This OTP is valid for 5 minutes. Do not share it with anyone.
+                                        </div>
+                                    </div>
+                                )}
 
-                        {/* Recent Corporate Disclosures Feed Mock */}
-                        <div className="space-y-3">
-                            <span className="text-[10px] font-bold text-brand-textMuted uppercase tracking-wider block">Recent Corporate Filings</span>
-                            <div className="space-y-2 text-[10px]">
-                                <div className="p-2.5 bg-[#0C0E14]/60 border border-[#222A38] rounded-xl flex items-center justify-between gap-4">
-                                    <span className="text-brand-cyan font-bold bg-brand-dark px-1.5 py-0.5 rounded">TCS</span>
-                                    <span className="text-brand-light truncate flex-1 text-left">Board meeting announced for dividends</span>
-                                    <span className="text-[#6B7280]">10:42</span>
-                                </div>
-                                <div className="p-2.5 bg-[#0C0E14]/60 border border-[#222A38] rounded-xl flex items-center justify-between gap-4">
-                                    <span className="text-brand-cyan font-bold bg-brand-dark px-1.5 py-0.5 rounded">RELIANCE</span>
-                                    <span className="text-brand-light truncate flex-1 text-left">Quarterly financial results submission</span>
-                                    <span className="text-[#6B7280]">10:35</span>
-                                </div>
-                                <div className="p-2.5 bg-[#0C0E14]/60 border border-[#222A38] rounded-xl flex items-center justify-between gap-4">
-                                    <span className="text-red-400 font-bold bg-brand-dark px-1.5 py-0.5 rounded">INFY</span>
-                                    <span className="text-brand-light truncate flex-1 text-left">Resignation of Director filings</span>
-                                    <span className="text-[#6B7280]">09:50</span>
+                                <div className="p-3 bg-[#0C0E14] border border-[#222A38] rounded-2xl relative shadow-md opacity-80">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
+                                        <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts alerts</span>
+                                        <span className="text-[9px] text-[#6B7280] ml-auto">5m ago</span>
+                                    </div>
+                                    <p className="text-[10px] text-brand-light leading-relaxed">
+                                        🚨 <strong>RELIANCE (NSE)</strong>: Board meeting scheduled on June 15, 2026 to consider dividend payments and financial statements. <span className="text-brand-cyan hover:underline cursor-pointer font-bold block mt-1">Read PDF Document →</span>
+                                    </p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div className="pt-6 border-t border-[#222A38] mt-6 text-[10px] text-brand-textMuted text-left relative z-10 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-brand-cyan rounded-full animate-ping" />
-                        <span>Real-time corporate disclosures stream direct from BSE/NSE.</span>
+                        <span className="w-2 h-2 bg-[#33D097] rounded-full animate-ping" />
+                        <span>Instant verification and alerts sent straight to your device.</span>
                     </div>
                 </div>
 

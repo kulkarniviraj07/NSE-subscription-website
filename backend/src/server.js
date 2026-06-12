@@ -13,6 +13,26 @@ async function startServer() {
 
     try {
 
+        if (
+            !process.env.JWT_SECRET
+        ) {
+
+            throw new Error(
+                "JWT_SECRET is not set. Add it to the backend .env file."
+            );
+
+        }
+
+        if (
+            !process.env.RAZORPAY_KEY_SECRET
+        ) {
+
+            console.warn(
+                "Warning: RAZORPAY_KEY_SECRET is not set — payment verification will fail."
+            );
+
+        }
+
         await db.testConnection();
 
         app.listen(

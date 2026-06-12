@@ -3,14 +3,16 @@ const razorpay =
         "../config/razorpay"
     );
 
-async function createOrder() {
+async function createOrder(
+    amount
+) {
 
     const order =
 
         await razorpay.orders.create({
 
             amount:
-                119 * 100,
+                Math.round(amount * 100),
 
             currency:
                 "INR",

@@ -52,24 +52,64 @@ app.use(
     helmet()
 );
 
-app.use(
-    cors()
-);
+// Allowed browser origins; override in production via CORS_ORIGIN
+// (comma-separated list, e.g. "https://app.example.com")
+const allowedOrigins =
+
+    process.env.CORS_ORIGIN
+
+        ? process.env.CORS_ORIGIN
+            .split(",")
+            .map((o) => o.trim())
+
+        : [
+
+            "http://localhost:5173",
+
+            "http://localhost:3000",
+
+            "http://127.0.0.1:5173",
+
+            "http://127.0.0.1:3000"
+
+        ];
 
 app.use(
-    express.json()
-);
+    cors({
 
-app.use(
-    express.urlencoded({
-
-        extended: true
+        origin: allowedOrigins
 
     })
 );
 
 app.use(
-    morgan("dev")
+    express.json({
+
+        limit: "100kb"
+
+    })
+);
+
+app.use(
+    express.urlencoded({
+
+        extended: true,
+
+        limit: "100kb"
+
+    })
+);
+
+app.use(
+    morgan(
+
+        process.env.NODE_ENV === "production"
+
+            ? "combined"
+
+            : "dev"
+
+    )
 );
 app.use(
     "/api/payments",

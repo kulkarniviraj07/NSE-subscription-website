@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: nse_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-R@chita5}
+    ports:
+      - "${DB_PORT_EXTERNAL:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: nse_backend
+    restart: always
+    environment:
+      - PORT=3001
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=nse_subscription
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-R@chita5}
+      - JWT_SECRET=${JWT_SECRET:-change_this_later}
+      - MSG91_AUTH_KEY=${MSG91_AUTH_KEY:-}
+      - WHATSAPP_TOKEN=${WHATSAPP_TOKEN:-EAAOlNZAHpiycBRokcu8dG3WfElWGf0VJGcVybtdCN64xAvJ7kCcpZBZBAV1zVl2MpVwnqyyoHQRg4yb31vnUkmq0IyGyqFsAymfrjiLMpMXtomIqcwQKka0GtpZC3HZCyLquhbZBhyEzWlWZAR40W8JaAYZBfTtDMvjJCqrZA7EoudRHfZAJYfY9dpc26s8ov3Ad70wQZDZD}
+      - WHATSAPP_PHONE_NUMBER_ID=${PHONE_NUMBER_ID:-1094754613731490}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-rzp_test_StTN99cLXMwRFa}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-hz7CyDimlOYS2sdZwyDHxdSs}
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    container_name: nse_bot
+    restart: always
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=nse_ingestion
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-R@chita5}
+      - DB_NAME_SUB=nse_subscription
+      - SCRAPER_BASE_PATH=/app
+      - ENABLE_DB_WATCHER=${ENABLE_DB_WATCHER:-True}
+      - WHATSAPP_TOKEN=${WHATSAPP_TOKEN:-EAAOlNZAHpiycBRokcu8dG3WfElWGf0VJGcVybtdCN64xAvJ7kCcpZBZBAV1zVl2MpVwnqyyoHQRg4yb31vnUkmq0IyGyqFsAymfrjiLMpMXtomIqcwQKka0GtpZC3HZCyLquhbZBhyEzWlWZAR40W8JaAYZBfTtDMvjJCqrZA7EoudRHfZAJYfY9dpc26s8ov3Ad70wQZDZD}
+      - PHONE_NUMBER_ID=${PHONE_NUMBER_ID:-1094754613731490}
+      - VERIFY_TOKEN=${VERIFY_TOKEN:-nse_bot_secret_2024}
+      - FLASK_PORT=5000
+      - BOT_DB_PATH=/app/bot_sqlite/bot_data.db
+    ports:
+      - "5000:5000"
+    volumes:
+      - shared_storage:/app/storage
+      - bot_sqlite_data:/app/bot_sqlite
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  scraper:
+    build:
+      context: .
+      dockerfile: scraper/Dockerfile
+    container_name: nse_scraper
+    restart: always
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=nse_ingestion
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-R@chita5}
+      - SYMBOLS=${SYMBOLS:-HDFCBANK,TCS,INFY,RELIANCE,WIPRO,ICICIBANK,SBIN,AXISBANK,KOTAKBANK,BAJFINANCE,HINDUNILVR,ITC,LT,TITAN,MARUTI,BHARTIARTL,HCLTECH,TECHM,SUNPHARMA,TATAMOTORS,TATASTEEL,JSWSTEEL,NTPC,POWERGRID,ONGC,COALINDIA,BAJAJFINSV,ADANIENT,ADANIPORTS,ASIANPAINT,NESTLEIND,ULTRACEMCO,GRASIM,INDUSINDBK,HDFCLIFE,SBILIFE,CIPLA,DRREDDY,DIVISLAB,EICHERMOT,HEROMOTOCO,BRITANNIA,APOLLOHOSP,TRENT,PIDILITIND,BEL,HAL,DABUR,SIEMENS,WOCKPHARMA}
+      - INTERVAL=${POLL_INTERVAL_MS:-30000}
+      - MAX_RECORDS=${MAX_RECORDS:-10}
+      - REQUEST_LIMIT=${REQUEST_LIMIT:-5}
+      - DOWNLOAD_WORKERS=${DOWNLOAD_WORKERS:-10}
+      - MAX_QUEUE_SIZE=${MAX_QUEUE_SIZE:-5000}
+      - MAX_PENDING_JOBS=${MAX_PENDING_JOBS:-10000}
+      - MARKET_START=${MARKET_START:-8}
+      - MARKET_END=${MARKET_END:-18}
+      - PDF_STORAGE_PATH=/app/storage/pdf
+    volumes:
+      - shared_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  shared_storage:
+  bot_sqlite_data:

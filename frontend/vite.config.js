@@ -6,6 +6,8 @@ import react
 
 export default defineConfig({
 
+    base: '/portal/',
+
     plugins: [
 
         react()

@@ -12,7 +12,11 @@ async function findByMobile(
         await db.query(
 
             `
-            SELECT *
+            SELECT
+
+                id,
+                name,
+                mobile
 
             FROM users
 
@@ -51,7 +55,7 @@ async function create(
 
             )
 
-            RETURNING *
+            RETURNING id, name, mobile
             `,
 
             [

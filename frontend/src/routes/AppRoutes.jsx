@@ -116,7 +116,7 @@ export function AppRoutes() {
 
     return (
 
-        <BrowserRouter>
+        <BrowserRouter basename="/portal">
 
             <Routes>
 

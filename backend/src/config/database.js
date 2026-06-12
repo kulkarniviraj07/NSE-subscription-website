@@ -34,6 +34,12 @@ async function testConnection() {
             "SELECT NOW()"
         );
 
+        // Idempotent safety net for migration 008 (OTP brute-force lockout)
+        await client.query(
+            `ALTER TABLE otp_verifications
+             ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`
+        );
+
         client.release();
 
         console.log(

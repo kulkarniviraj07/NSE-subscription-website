@@ -27,7 +27,7 @@ async function create(
 
             )
 
-            RETURNING *
+            RETURNING id, mobile, expires_at
             `,
 
             [
@@ -50,7 +50,14 @@ async function findLatestByMobile(
         await db.query(
 
             `
-            SELECT *
+            SELECT
+
+                id,
+                mobile,
+                otp_hash,
+                expires_at,
+                verified,
+                attempts
 
             FROM otp_verifications
 
@@ -89,12 +96,34 @@ async function markVerified(
 
 }
 
+async function incrementAttempts(
+    id
+) {
+
+    await db.query(
+
+        `
+        UPDATE otp_verifications
+
+        SET attempts = attempts + 1
+
+        WHERE id = $1
+        `,
+
+        [id]
+
+    );
+
+}
+
 module.exports = {
 
     create,
 
     findLatestByMobile,
 
-    markVerified
+    markVerified,
+
+    incrementAttempts
 
 };

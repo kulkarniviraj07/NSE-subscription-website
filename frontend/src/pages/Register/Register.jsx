@@ -61,7 +61,7 @@ export function Register() {
         try {
             setLoading(true);
             await register(name, mobile);
-            setSuccessMessage("Verification code dispatched!");
+            setSuccessMessage("OTP sent! Check your WhatsApp for the code.");
             setStep("OTP");
         } catch (err) {
             setApiError(

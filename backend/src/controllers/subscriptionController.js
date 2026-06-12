@@ -15,6 +15,32 @@ async function activateFreePlan(
 
     try {
 
+        const existing =
+
+            await subscriptionRepository
+                .findActiveByUser(
+
+                    req.user.id
+
+                );
+
+        if (
+            existing
+        ) {
+
+            return res
+                .status(400)
+                .json({
+
+                    success: false,
+
+                    message:
+                        "You already have an active subscription"
+
+                });
+
+        }
+
         const subscription =
 
             await subscriptionService

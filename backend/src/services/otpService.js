@@ -11,6 +11,8 @@ const generateOtp =
         "../utils/otpGenerator"
     );
 
+const MAX_ATTEMPTS = 5;
+
 async function createOtp(
     mobile
 ) {
@@ -73,6 +75,14 @@ async function verifyOtp(
     }
 
     if (
+        record.attempts >= MAX_ATTEMPTS
+    ) {
+
+        return false;
+
+    }
+
+    if (
         new Date() >
         new Date(
             record.expires_at
@@ -96,6 +106,11 @@ async function verifyOtp(
     if (
         !matched
     ) {
+
+        await otpRepository
+            .incrementAttempts(
+                record.id
+            );
 
         return false;
 

@@ -18,6 +18,13 @@ const subscriptionRepository =
         "../repositories/subscriptionRepository"
     );
 
+const planRepository =
+    require(
+        "../repositories/planRepository"
+    );
+
+const PREMIUM_PLAN_ID = 2;
+
 async function createOrder(
     req,
     res
@@ -25,17 +32,43 @@ async function createOrder(
 
     try {
 
+        const plan =
+
+            await planRepository
+                .findById(
+                    PREMIUM_PLAN_ID
+                );
+
+        if (
+            !plan
+        ) {
+
+            return res
+                .status(500)
+                .json({
+
+                    success: false,
+
+                    message:
+                        "Plan not available"
+
+                });
+
+        }
+
         const order =
 
             await paymentService
-                .createOrder();
+                .createOrder(
+                    Number(plan.price)
+                );
 
         await paymentRepository
             .create(
 
                 req.user.id,
 
-                119,
+                Number(plan.price),
 
                 order.id
 
@@ -69,6 +102,46 @@ async function createOrder(
 
 }
 
+function isSignatureValid(
+    orderId,
+    paymentId,
+    signature
+) {
+
+    const generated =
+
+        crypto
+            .createHmac(
+                "sha256",
+                process.env.RAZORPAY_KEY_SECRET
+            )
+            .update(
+                `${orderId}|${paymentId}`
+            )
+            .digest("hex");
+
+    const expected =
+        Buffer.from(generated);
+
+    const received =
+        Buffer.from(String(signature));
+
+    if (
+        expected.length !==
+        received.length
+    ) {
+
+        return false;
+
+    }
+
+    return crypto.timingSafeEqual(
+        expected,
+        received
+    );
+
+}
+
 async function verifyPayment(
     req,
     res
@@ -86,34 +159,80 @@ async function verifyPayment(
 
         } = req.body;
 
-        const generatedSignature =
+        if (
+            !razorpay_order_id ||
+            !razorpay_payment_id ||
+            !razorpay_signature
+        ) {
 
-            crypto
-                .createHmac(
+            return res
+                .status(400)
+                .json({
 
-                    "sha256",
+                    success: false,
 
-                    process.env
-                        .RAZORPAY_KEY_SECRET
+                    message:
+                        "Missing payment details"
 
-                )
+                });
 
-                .update(
+        }
 
-                    `${razorpay_order_id}|${razorpay_payment_id}`
+        const payment =
 
-                )
-
-                .digest(
-                    "hex"
+            await paymentRepository
+                .findByOrderId(
+                    razorpay_order_id
                 );
 
+        // The order must exist and belong to the caller
         if (
+            !payment ||
+            Number(payment.user_id) !==
+            Number(req.user.id)
+        ) {
 
-            generatedSignature !==
+            return res
+                .status(403)
+                .json({
 
-            razorpay_signature
+                    success: false,
 
+                    message:
+                        "Order not found for this user"
+
+                });
+
+        }
+
+        // Block replaying an already-settled order
+        if (
+            payment.status === "SUCCESS"
+        ) {
+
+            return res
+                .status(400)
+                .json({
+
+                    success: false,
+
+                    message:
+                        "Payment already processed"
+
+                });
+
+        }
+
+        if (
+            !isSignatureValid(
+
+                razorpay_order_id,
+
+                razorpay_payment_id,
+
+                razorpay_signature
+
+            )
         ) {
 
             return res
@@ -145,15 +264,26 @@ async function verifyPayment(
 
             );
 
+        const plan =
+
+            await planRepository
+                .findById(
+                    PREMIUM_PLAN_ID
+                );
+
         const startDate =
             new Date();
 
         const endDate =
             new Date();
 
-        endDate.setMonth(
+        endDate.setDate(
 
-            endDate.getMonth() + 1
+            endDate.getDate() +
+
+            Number(
+                (plan && plan.duration_days) || 30
+            )
 
         );
 
@@ -162,7 +292,7 @@ async function verifyPayment(
 
                 req.user.id,
 
-                2,
+                PREMIUM_PLAN_ID,
 
                 "ACTIVE",
 

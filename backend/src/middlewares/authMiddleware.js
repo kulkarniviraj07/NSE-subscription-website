@@ -16,7 +16,8 @@ async function authMiddleware(
             req.headers.authorization;
 
         if (
-            !authHeader
+            !authHeader ||
+            !authHeader.startsWith("Bearer ")
         ) {
 
             return res
@@ -34,9 +35,8 @@ async function authMiddleware(
 
         const token =
 
-            authHeader.replace(
-                "Bearer ",
-                ""
+            authHeader.slice(
+                "Bearer ".length
             );
 
         const decoded =
