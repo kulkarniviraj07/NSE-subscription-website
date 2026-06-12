@@ -71,7 +71,7 @@ a.id > b.id
 
 AND
 
-a.url = b.url
+a.pdf_url = b.pdf_url
 
 `
 
@@ -111,9 +111,9 @@ last_retry_at TIMESTAMPTZ
 
 CREATE UNIQUE INDEX IF NOT EXISTS
 
-failed_jobs_url_key
+failed_jobs_pdf_url_key
 
-ON failed_jobs(url)
+ON failed_jobs(pdf_url)
 
 `
 
