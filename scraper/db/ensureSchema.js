@@ -7,15 +7,33 @@ async function ensureSchema() {
     await db.query(`
         CREATE TABLE IF NOT EXISTS announcements (
           id SERIAL PRIMARY KEY,
-          symbol VARCHAR(20) NOT NULL,
+          company_symbol VARCHAR(20) NOT NULL,
           title TEXT,
-          pdf_url TEXT NOT NULL,
+          pdf_url TEXT NOT NULL UNIQUE,
           local_path TEXT,
-          announced_at TIMESTAMP,
+          announcement_time TIMESTAMP,
           download_status VARCHAR(20) DEFAULT 'PENDING',
-          created_at TIMESTAMP DEFAULT NOW(),
-          UNIQUE(symbol, pdf_url)
+          created_at TIMESTAMP DEFAULT NOW()
         );
+    `);
+
+    // Rename legacy columns created with wrong names (idempotent via DO block)
+    await db.query(`
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='announcements' AND column_name='symbol'
+            ) THEN
+                ALTER TABLE announcements RENAME COLUMN symbol TO company_symbol;
+            END IF;
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='announcements' AND column_name='announced_at'
+            ) THEN
+                ALTER TABLE announcements RENAME COLUMN announced_at TO announcement_time;
+            END IF;
+        END $$;
     `);
     await db.query(`
         CREATE TABLE IF NOT EXISTS company_state (
