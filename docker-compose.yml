@@ -12,7 +12,6 @@ services:
       - "${DB_PORT_EXTERNAL:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -43,6 +42,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      bot:
+        condition: service_started
 
   bot:
     build:
@@ -72,8 +73,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      backend:
-        condition: service_started
 
   scraper:
     build:
@@ -102,6 +101,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      bot:
+        condition: service_started
 
 volumes:
   postgres_data:

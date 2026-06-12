@@ -9,8 +9,8 @@ DB_USER = os.environ.get("DB_USER", "postgres")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "R@chita5")
 DB_NAME = os.environ.get("DB_NAME_SUB", "nse_subscription")
 
-def create_database():
-    print(f"Connecting to PostgreSQL as '{DB_USER}' to ensure database '{DB_NAME}' exists...")
+def create_database(db_name):
+    print(f"Connecting to PostgreSQL as '{DB_USER}' to ensure database '{db_name}' exists...")
     conn = psycopg2.connect(
         host=DB_HOST,
         port=DB_PORT,
@@ -22,14 +22,14 @@ def create_database():
     cur = conn.cursor()
     
     # Check if DB exists
-    cur.execute("SELECT 1 FROM pg_catalog.pg_database WHERE datname = %s;", (DB_NAME,))
+    cur.execute("SELECT 1 FROM pg_catalog.pg_database WHERE datname = %s;", (db_name,))
     exists = cur.fetchone()
     if not exists:
-        print(f"Database '{DB_NAME}' does not exist. Creating...")
-        cur.execute(f"CREATE DATABASE {DB_NAME};")
-        print(f"Database '{DB_NAME}' created successfully.")
+        print(f"Database '{db_name}' does not exist. Creating...")
+        cur.execute(f"CREATE DATABASE {db_name};")
+        print(f"Database '{db_name}' created successfully.")
     else:
-        print(f"Database '{DB_NAME}' already exists.")
+        print(f"Database '{db_name}' already exists.")
         
     cur.close()
     conn.close()
@@ -111,7 +111,8 @@ def run_migrations():
 
 if __name__ == "__main__":
     try:
-        create_database()
+        create_database("nse_subscription")
+        create_database("nse_ingestion")
         run_migrations()
     except Exception as e:
         print(f"❌ Database Setup Failed: {e}")
