@@ -66,6 +66,7 @@ services:
       - FLASK_PORT=5000
       - BOT_DB_PATH=/app/bot_sqlite/bot_data.db
       - PORTAL_URL=${PORTAL_URL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     ports:
       - "5000:5000"
     volumes:

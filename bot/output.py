@@ -1,0 +1,497 @@
+"""
+PureFrame Result Bits - PDF Financial Extractor
+================================================
+Extracts key financial metrics from any investor presentation PDF
+and formats them as a PureFrame-style WhatsApp message using LangChain.
+
+Requirements:
+    pip install langchain langchain-anthropic langchain-openai langchain-google-genai pdfplumber pypdf python-dotenv
+
+Usage:
+    python output.py --pdf path/to/presentation.pdf
+    python output.py --url https://example.com/presentation.pdf
+    python output.py --pdf path/to/presentation.pdf --provider google
+    python output.py --pdf path/to/presentation.pdf --provider google --model gemini-2.5-flash
+"""
+
+# ── Load .env FIRST before anything else ─────────────────────────────────────
+from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+# Works from any working directory — always finds .env next to this script
+load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+import argparse
+import json
+import sys
+import urllib.request
+import tempfile
+
+# ── LangChain ────────────────────────────────────────────────────────────────
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field
+
+# ── PDF text extraction ───────────────────────────────────────────────────────
+import pdfplumber
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1.  Pydantic schema – defines the structured output
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PeriodMetric(BaseModel):
+    """A single financial metric for one reporting period."""
+    period_label: str = Field(description="E.g. 'Mar 2026', 'Dec 2025', 'Mar 2025'")
+    value: str = Field(description="Formatted value with currency/unit, e.g. '₹934.17 Cr' or '17.08%'")
+
+
+class MetricBlock(BaseModel):
+    """Revenue, PAT, OPM or any other key metric."""
+    name: str = Field(description="Full metric name, e.g. 'Revenue', 'Profit After Tax (PAT)'")
+    short_name: str = Field(description="Short label, e.g. 'REV', 'PAT', 'OPM'")
+    periods: list[PeriodMetric] = Field(
+        description="List of [current_quarter, prev_quarter, same_quarter_last_year]"
+    )
+    qoq_change: str = Field(description="QoQ % change, e.g. '+62.18' or '-5.3'")
+    yoy_change: str = Field(description="YoY % change, e.g. '+57.14' or '-10.2'")
+    unit: str = Field(description="'crore' | 'percent' | 'lakh' | 'million' | 'billion' | 'other'")
+
+
+class FinancialSummary(BaseModel):
+    """Complete structured output for one quarterly result."""
+    company_name: str = Field(description="Full company name")
+    reporting_period: str = Field(description="E.g. 'Mar 2026'")
+    metrics: list[MetricBlock] = Field(description="List of key financial metrics extracted")
+    insights_url: str = Field(
+        default="",
+        description="AI insights URL if present, else empty string"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.  PDF text extraction helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def extract_text_from_pdf_file(pdf_path: str) -> str:
+    """Extract all text from a PDF file using pypdf for speed, with a fallback to pdfplumber."""
+    # Try pypdf first (extremely fast and doesn't get stuck on vector diagrams)
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(pdf_path)
+        text_parts = []
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                text_parts.append(t)
+        full_text = "\n".join(text_parts)
+        if len(full_text.strip()) > 100:
+            print("⚡ Extracted text using fast pypdf parser.", file=sys.stderr)
+            return full_text
+    except Exception as e:
+        print(f"⚠️ pypdf extraction failed: {e}. Falling back to pdfplumber...", file=sys.stderr)
+
+    # Fallback to pdfplumber without the slow extract_tables() layout geometry analysis
+    print("⏳ Running pdfplumber fallback text extraction...", file=sys.stderr)
+    text_parts = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text_parts.append(page_text)
+
+    return "\n".join(text_parts)
+
+
+def download_pdf(url: str) -> str:
+    """Download a PDF from URL to a temp file, return local path."""
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    }
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as response:
+        tmp.write(response.read())
+    tmp.close()
+    return tmp.name
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.  LangChain extraction chain
+# ─────────────────────────────────────────────────────────────────────────────
+
+SYSTEM_PROMPT = """You are a financial analyst AI that extracts structured data
+from quarterly investor presentation PDFs of Indian listed companies.
+
+Your task:
+1. Identify the company name and reporting quarter/year.
+2. Extract the following metrics (if present) for THREE periods:
+   - Current Quarter (most recent, e.g. Mar 2026)
+   - Previous Quarter (e.g. Dec 2025)
+   - Same Quarter Last Year (e.g. Mar 2025)
+3. Metrics to extract (extract ALL that are present):
+   - Revenue / Net Revenue / Total Income  → short_name: REV
+   - EBITDA / Operating Profit             → short_name: EBITDA
+   - Operating Profit Margin (OPM/EBITDA%) → short_name: OPM
+   - Profit After Tax (PAT / Net Profit)   → short_name: PAT
+   - Earnings Per Share (EPS)              → short_name: EPS
+   - Net Debt                              → short_name: DEBT (optional)
+   - Order Book / Backlog                  → short_name: ORDERBOOK (optional)
+4. Calculate QoQ and YoY percentage changes:
+   - QoQ = ((current - prev_quarter) / |prev_quarter|) * 100
+   - YoY = ((current - same_qtr_last_year) / |same_qtr_last_year|) * 100
+   - Round to 2 decimal places, include sign (+/-)
+5. For margins (OPM, EBITDA%), unit = "percent"; for monetary values unit = "crore"
+   (or million/billion as per document).
+6. Format monetary values with Rs symbol and Cr/Mn suffix as shown in the document.
+7. Format percentage values with % suffix.
+
+IMPORTANT:
+- If a metric is not found, skip it entirely (do not hallucinate values).
+- Use exact numbers from the PDF — do not round or approximate.
+- Return ONLY valid JSON matching the schema. No markdown fences, no explanation.
+"""
+
+EXTRACTION_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", SYSTEM_PROMPT),
+    ("human", (
+        "Extract financial data from the following PDF text and return JSON "
+        "matching the FinancialSummary schema.\n\n"
+        "Schema:\n{schema}\n\n"
+        "PDF TEXT:\n{pdf_text}"
+    )),
+])
+
+
+# ── Provider → default model mapping ─────────────────────────────────────────
+PROVIDER_DEFAULTS = {
+    "anthropic": "claude-opus-4-6",
+    "openai":    "gpt-4o",
+    "google":    "gemini-2.5-flash",
+    "gemini":    "gemini-2.5-flash",   # alias for google
+    "groq":      "llama-3.3-70b-versatile",
+}
+
+
+def build_chain(provider: str = "google", model: str | None = None):
+    """Build the LangChain extraction chain for the given LLM provider."""
+    _model = model or PROVIDER_DEFAULTS.get(provider)
+
+    if provider in ("google", "gemini"):
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        # Prefer GEMINI_API_KEY; fall back to GOOGLE_API_KEY
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise EnvironmentError(
+                "No Gemini API key found. "
+                "Add GOOGLE_API_KEY or GEMINI_API_KEY to your .env file."
+            )
+        # Force the library to use this key (it reads GOOGLE_API_KEY from env internally)
+        os.environ["GOOGLE_API_KEY"] = api_key
+        llm = ChatGoogleGenerativeAI(
+            model=_model,
+            google_api_key=api_key,
+            temperature=0,
+        )
+
+    elif provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        llm = ChatAnthropic(model=_model, temperature=0, max_tokens=2048)
+
+    elif provider == "openai":
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(model=_model, temperature=0, max_tokens=2048)
+
+    elif provider == "groq":
+        from langchain_groq import ChatGroq
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise EnvironmentError(
+                "No Groq API key found. "
+                "Add GROQ_API_KEY to your env/system variables."
+            )
+        llm = ChatGroq(model=_model, groq_api_key=api_key, temperature=0, max_retries=2)
+
+    else:
+        raise ValueError(
+            f"Unsupported provider: '{provider}'. "
+            f"Choose from: {list(PROVIDER_DEFAULTS.keys())}"
+        )
+
+    parser = JsonOutputParser(pydantic_object=FinancialSummary)
+    chain  = EXTRACTION_PROMPT | llm | parser
+    return chain, parser
+
+
+def extract_financials(
+    pdf_text: str,
+    provider: str = "google",
+    model: str | None = None,
+) -> FinancialSummary:
+    """Run LangChain chain to extract financials from PDF text."""
+    chain, _ = build_chain(provider=provider, model=model)
+    schema_str = json.dumps(FinancialSummary.model_json_schema(), indent=2)
+
+    # Limit text size to prevent exceeding context or free rate limits (e.g. Groq TPM is small)
+    max_chars = 20000 if provider == "groq" else 80000
+    
+    result = chain.invoke({
+        "schema":   schema_str,
+        "pdf_text": pdf_text[:max_chars],   # stay within context limits
+    })
+
+    if isinstance(result, dict):
+        return FinancialSummary(**result)
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4.  WhatsApp message formatter
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _trend_emoji(change_str: str) -> str:
+    """Return emoji based on direction and magnitude of change."""
+    try:
+        val = float(change_str.replace("+", "").replace("%", ""))
+    except ValueError:
+        return "➡️"
+    if val > 20:   return "🚀"
+    if val > 0:    return "🟢"
+    if val < -20:  return "🔴"
+    if val < 0:    return "🔻"
+    return "➡️"
+
+
+def _format_change(change_str: str) -> str:
+    """Format '62.18' → '+62.18%', '-5.3' → '-5.3%'."""
+    try:
+        val  = float(change_str.replace("+", "").replace("%", ""))
+        sign = "+" if val >= 0 else ""
+        return f"{sign}{val:.2f}%"
+    except ValueError:
+        return change_str
+
+
+def format_whatsapp_message(
+    summary: FinancialSummary,
+    equisense_url: str = "https://pureframe.ai",
+    short_url: str = "",
+) -> str:
+    """Convert a FinancialSummary into the PureFrame Result Bits WhatsApp format."""
+    lines = []
+
+    # Header
+    lines.append("*📢 PureFrame Result Bits!!*")
+    lines.append(f"💼 {summary.company_name} | {summary.reporting_period} Results Out")
+    lines.append("📊 Key Metrics")
+
+    # Metric blocks
+    for m in summary.metrics:
+        lines.append("")
+        lines.append(f"{m.name} ({m.short_name}):")
+        for p in m.periods:
+            lines.append(f"🗓️ {p.period_label}: {p.value}")
+        qoq_str   = _format_change(m.qoq_change)
+        yoy_str   = _format_change(m.yoy_change)
+        lines.append(
+            f"{_trend_emoji(m.qoq_change)} {qoq_str} QoQ, "
+            f"{_trend_emoji(m.yoy_change)} {yoy_str} YoY"
+        )
+
+    # AI Insights
+    lines.append("")
+    lines.append("🤖 Key Insights:")
+    lines.append(f" {summary.insights_url or short_url or equisense_url}")
+    lines.append(
+        f"You are receiving this stock update per your request on {equisense_url}"
+    )
+
+    return "\n".join(lines)
+
+
+def summarize_content(
+    pdf_text: str,
+    company_name: str,
+    provider: str = "openai",
+    model: str | None = None,
+    equisense_url: str = "https://pureframe.ai",
+) -> str:
+    """
+    Plain-text content summary for PDFs with no financial tables.
+    Uses the same LLM provider to produce a short WhatsApp-friendly filing alert.
+    """
+    _model = model or PROVIDER_DEFAULTS.get(provider)
+
+    # Build a plain LLM (no structured output / JSON parser)
+    if provider in ("google", "gemini"):
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        os.environ["GOOGLE_API_KEY"] = api_key
+        llm = ChatGoogleGenerativeAI(model=_model, google_api_key=api_key, temperature=0)
+    elif provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        llm = ChatAnthropic(model=_model, temperature=0, max_tokens=512)
+    elif provider == "openai":
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(model=_model, temperature=0, max_tokens=512)
+    elif provider == "groq":
+        from langchain_groq import ChatGroq
+        llm = ChatGroq(model=_model, groq_api_key=os.getenv("GROQ_API_KEY"), temperature=0)
+    else:
+        raise ValueError(f"Unsupported provider: '{provider}'")
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system",
+         "You are a financial analyst summarising Indian stock exchange filings for retail investors.\n"
+         "Write a concise 3-5 line plain-English summary of what this filing is about.\n"
+         "Focus on: what action the company is taking, why it matters, and any key dates or amounts.\n"
+         "Do NOT use bullet points or headers. Do NOT include financial metric tables.\n"
+         "Return ONLY the summary text — no JSON, no markdown fences."),
+        ("human", "Filing content:\n\n{pdf_text}"),
+    ])
+
+    result = (prompt | llm).invoke({"pdf_text": pdf_text[:8000]})
+    content_text = result.content.strip() if hasattr(result, "content") else str(result).strip()
+
+    lines = [
+        "*📢 PureFrame Filing Alert!!*",
+        f"💼 {company_name}",
+        "",
+        "📋 Filing Summary:",
+        content_text,
+        "",
+        "🤖 Key Insights:",
+        f" {equisense_url}",
+        f"You are receiving this stock update per your request on {equisense_url}",
+    ]
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5.  Main pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+
+def process_pdf(
+    pdf_source: str,
+    provider: str = "google",
+    model: str | None = None,
+    equisense_url: str = "https://pureframe.ai",
+    short_url: str = "",
+    save_json: bool = False,
+) -> str:
+    """
+    End-to-end pipeline: PDF → text → LangChain extraction → formatted message.
+    If no financial metrics are found, falls back to a plain content summary.
+    """
+    # Step 1: Get PDF text
+    print(f"[1/3] Loading PDF: {pdf_source}", file=sys.stderr)
+    tmp_path = None
+
+    if pdf_source.startswith("http://") or pdf_source.startswith("https://"):
+        print("      Downloading...", file=sys.stderr)
+        tmp_path = download_pdf(pdf_source)
+        pdf_path = tmp_path
+    else:
+        pdf_path = pdf_source
+
+    try:
+        pdf_text = extract_text_from_pdf_file(pdf_path)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+    if not pdf_text.strip():
+        raise ValueError(
+            "No text extracted from PDF — it may be scanned/image-based. "
+            "Try a text-layer PDF."
+        )
+    print(f"      Extracted {len(pdf_text):,} characters.", file=sys.stderr)
+
+    # Step 2: LLM financial extraction
+    _model_name = model or PROVIDER_DEFAULTS.get(provider, "default")
+    print(f"[2/3] Extracting financials via {provider} / {_model_name} ...", file=sys.stderr)
+    summary     = None
+    company     = "Unknown Company"
+    try:
+        summary = extract_financials(pdf_text, provider=provider, model=model)
+        company = summary.company_name or company
+        print(f"      Found {len(summary.metrics)} metric(s) for '{company}'.", file=sys.stderr)
+    except Exception as e:
+        print(f"      Financial extraction failed ({e}) — will use content summary.", file=sys.stderr)
+
+    if save_json and summary:
+        json_path = Path(pdf_source).stem + "_financials.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(summary.dict(), f, indent=2, ensure_ascii=False)
+        print(f"      JSON saved → {json_path}", file=sys.stderr)
+
+    # Step 3: Format — use financial summary if metrics found, else plain content summary
+    print("[3/3] Formatting WhatsApp message...", file=sys.stderr)
+    if summary and summary.metrics:
+        return format_whatsapp_message(summary, equisense_url=equisense_url, short_url=short_url)
+
+    print("      No financial metrics — generating content summary instead.", file=sys.stderr)
+    return summarize_content(pdf_text, company_name=company, provider=provider,
+                             model=model, equisense_url=equisense_url)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6.  CLI entry point
+# ─────────────────────────────────────────────────────────────────────────────
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Investor PDF → PureFrame WhatsApp message"
+    )
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--pdf", help="Local path to investor presentation PDF")
+    src.add_argument("--url", help="URL of investor presentation PDF")
+
+    ap.add_argument(
+        "--provider",
+        choices=list(PROVIDER_DEFAULTS.keys()),
+        default="google",
+        help="LLM provider (default: google)",
+    )
+    ap.add_argument("--model",        default=None, help="Override model name")
+    ap.add_argument("--short-url",    default="",   help="Short URL for AI insights section")
+    ap.add_argument("--equisense-url",default="https://pureframe.ai")
+    ap.add_argument("--save-json",    action="store_true", help="Save intermediate JSON")
+    ap.add_argument("--output",       default=None, help="Save message to file")
+    ap.add_argument("--raw",          action="store_true", help="Print raw WhatsApp message without borders")
+
+    args = ap.parse_args()
+
+    try:
+        message = process_pdf(
+            pdf_source    = args.pdf or args.url,
+            provider      = args.provider,
+            model         = args.model,
+            equisense_url = args.equisense_url,
+            short_url     = args.short_url,
+            save_json     = args.save_json,
+        )
+    except Exception as e:
+        print(f"\n❌ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as f:
+            f.write(message)
+        print(f"\n✅ Saved → {args.output}")
+    elif args.raw:
+        print(message)
+    else:
+        print("\n" + "═" * 60)
+        print(message)
+        print("═" * 60)
+
+
+if __name__ == "__main__":
+    main()

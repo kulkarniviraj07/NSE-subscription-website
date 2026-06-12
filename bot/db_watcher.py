@@ -8,6 +8,7 @@
 #  pending_filings retry queue instead of dropping it.
 # ============================================================
 import os
+import sys
 import time
 import threading
 import psycopg2
@@ -169,11 +170,11 @@ def get_subscribers_for_symbol_pg(symbol: str) -> list:
 def generate_pdf_summary(file_path: str) -> str | None:
     """Run the LLM PDF parser in a subprocess using the structured_output virtual environment."""
     try:
-        venv_python   = r"d:\prathmesh\structured_output\.venv\Scripts\python.exe"
-        output_script = r"d:\prathmesh\structured_output\output.py"
+        venv_python   = sys.executable
+        output_script = os.path.join(os.path.dirname(__file__), "output.py")
 
-        if not os.path.exists(venv_python) or not os.path.exists(output_script):
-            print("⚠️ venv python or output.py script not found, skipping summary generation.")
+        if not os.path.exists(output_script):
+            print("⚠️ output.py script not found, skipping summary generation.")
             return None
 
         print(f"🤖 Generating AI summary for {os.path.basename(file_path)}...")
