@@ -1,4 +1,4 @@
-CREATE TABLE otp_verifications (
+CREATE TABLE IF NOT EXISTS otp_verifications (
 
     id BIGSERIAL PRIMARY KEY,
 

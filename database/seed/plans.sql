@@ -18,4 +18,5 @@ VALUES
     119,
     25,
     30
-);
+)
+ON CONFLICT (name) DO NOTHING;

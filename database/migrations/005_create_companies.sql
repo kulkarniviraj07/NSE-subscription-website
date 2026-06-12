@@ -1,4 +1,4 @@
-CREATE TABLE companies (
+CREATE TABLE IF NOT EXISTS companies (
 
     id BIGSERIAL PRIMARY KEY,
 

@@ -1,4 +1,4 @@
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
 
     id BIGSERIAL PRIMARY KEY,
 

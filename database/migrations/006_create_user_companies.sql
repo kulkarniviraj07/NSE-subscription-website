@@ -1,4 +1,4 @@
-CREATE TABLE user_companies (
+CREATE TABLE IF NOT EXISTS user_companies (
 
     id BIGSERIAL PRIMARY KEY,
 
