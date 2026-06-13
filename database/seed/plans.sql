@@ -16,7 +16,10 @@ VALUES
 (
     'PREMIUM',
     119,
-    25,
+    150,
     30
 )
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT (name) DO UPDATE SET
+    price         = EXCLUDED.price,
+    company_limit = EXCLUDED.company_limit,
+    duration_days = EXCLUDED.duration_days;
