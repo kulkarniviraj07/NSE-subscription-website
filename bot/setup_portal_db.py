@@ -6,7 +6,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = int(os.environ.get("DB_PORT", 5433))
 DB_USER = os.environ.get("DB_USER", "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "R@chita5")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")   # Set via environment / Coolify
 DB_NAME = os.environ.get("DB_NAME_SUB", "nse_subscription")
 
 def create_database(db_name):

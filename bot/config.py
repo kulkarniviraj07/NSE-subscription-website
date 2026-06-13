@@ -6,7 +6,7 @@ import os
 
 # ── Step 1: Meta / WhatsApp Cloud API ────────────────────────
 # Get from: developers.facebook.com → Your App → WhatsApp → API Setup
-WHATSAPP_TOKEN   = os.environ.get("WHATSAPP_TOKEN", "EAAOlNZAHpiycBRokcu8dG3WfElWGf0VJGcVybtdCN64xAvJ7kCcpZBZBAV1zVl2MpVwnqyyoHQRg4yb31vnUkmq0IyGyqFsAymfrjiLMpMXtomIqcwQKka0GtpZC3HZCyLquhbZBhyEzWlWZAR40W8JaAYZBfTtDMvjJCqrZA7EoudRHfZAJYfY9dpc26s8ov3Ad70wQZDZD")   # Permanent token (not temp)
+WHATSAPP_TOKEN   = os.environ.get("WHATSAPP_TOKEN", "")   # Set via environment / Coolify — never hardcode (it leaks in git)
 PHONE_NUMBER_ID  = os.environ.get("PHONE_NUMBER_ID", "1094754613731490")          # Looks like: 123456789012345
 VERIFY_TOKEN     = os.environ.get("VERIFY_TOKEN", "nse_bot_secret_2024")           # Any string you choose (used once for webhook setup)
 
@@ -15,7 +15,7 @@ DB_HOST     = os.environ.get("DB_HOST", "localhost")
 DB_PORT     = int(os.environ.get("DB_PORT", 5433))
 DB_NAME     = os.environ.get("DB_NAME", "nse_ingestion")
 DB_USER     = os.environ.get("DB_USER", "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "R@chita5")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")   # Set via environment / Coolify
 
 # ── Step 3: PostgreSQL table/column names — matched to real scraper schema ───────
 # Table: announcements
