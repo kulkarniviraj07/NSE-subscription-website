@@ -184,7 +184,7 @@ def generate_pdf_summary(file_path: str) -> str | None:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=120
+            timeout=getattr(config, "SUMMARY_TIMEOUT_SEC", 30)
         )
 
         if result.returncode == 0:
@@ -495,27 +495,42 @@ catch_up_new_subscribers = deliver_backfill_for_subscribers
 # ── Background polling thread ────────────────────────────────
 
 def start_watcher():
+    """
+    Run two INDEPENDENT background loops:
+
+      1. live_loop      — the time-critical path. Polls for brand-new filings
+                          (is_notified=FALSE) every POLL_INTERVAL_SEC and ships
+                          them immediately. Nothing slow runs here, so a fresh
+                          announcement goes out within ~1 minute of appearing.
+
+      2. backfill_loop  — the slow subscriber catch-up (every subscriber ×
+                          every company × latest PDFs). Heavy, so it runs on its
+                          OWN thread on a long interval. It can take minutes
+                          without ever delaying live delivery.
+
+    Previously both ran in a single loop, so a long backfill sweep blocked new
+    filings for up to an hour. Splitting them is the fix.
+    """
     ensure_schema()
 
-    def loop():
-        print(f"👀 DB watcher started — polling every {config.POLL_INTERVAL_SEC}s")
-        try:
-            deliver_backfill_for_subscribers()
-        except Exception as e:
-            print(f"❌ Initial backfill error: {e}")
-
+    def live_loop():
+        print(f"⚡ Live dispatch started — checking for NEW filings every {config.POLL_INTERVAL_SEC}s")
         while True:
             try:
                 process_new_filings()
             except Exception as e:
-                print(f"❌ Watcher error: {e}")
+                print(f"❌ Live dispatch error: {e}")
+            time.sleep(config.POLL_INTERVAL_SEC)
 
+    def backfill_loop():
+        interval = getattr(config, "BACKFILL_INTERVAL_SEC", 600)
+        print(f"🪃 Subscriber backfill started — running every {interval}s (off the hot path)")
+        while True:
             try:
                 deliver_backfill_for_subscribers()
             except Exception as e:
                 print(f"❌ Backfill task error: {e}")
+            time.sleep(interval)
 
-            time.sleep(config.POLL_INTERVAL_SEC)
-
-    thread = threading.Thread(target=loop, daemon=True)
-    thread.start()
+    threading.Thread(target=live_loop, daemon=True, name="live-dispatch").start()
+    threading.Thread(target=backfill_loop, daemon=True, name="subscriber-backfill").start()

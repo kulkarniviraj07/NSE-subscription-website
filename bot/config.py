@@ -36,7 +36,19 @@ SCRAPER_BASE_PATH    = os.environ.get("SCRAPER_BASE_PATH", r"d:\prathmesh\shares
 FLASK_PORT        = int(os.environ.get("FLASK_PORT", 5000))
 FLASK_DEBUG       = os.environ.get("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
 ENABLE_DB_WATCHER = os.environ.get("ENABLE_DB_WATCHER", "True").lower() in ("true", "1", "yes")
-POLL_INTERVAL_SEC = int(os.environ.get("POLL_INTERVAL_SEC", 60))    # Check for new filings every 60 seconds
+POLL_INTERVAL_SEC = int(os.environ.get("POLL_INTERVAL_SEC", 30))    # Live dispatch: check for brand-new filings every 30s (time-critical path)
+
+# How often the SLOW subscriber catch-up/backfill runs. This task is heavy
+# (every subscriber × every company × latest PDFs) so it runs on its OWN thread,
+# on a long interval, and must NEVER block the live dispatch above. Keeping it
+# off the hot path is what makes new announcements go out within ~1 minute
+# instead of being stuck behind a long backfill sweep.
+BACKFILL_INTERVAL_SEC = int(os.environ.get("BACKFILL_INTERVAL_SEC", 600))   # 10 minutes
+
+# Max seconds to wait for the LLM PDF summary subprocess. Kept short so a slow
+# or hung summary can never delay PDF delivery past the "within a minute" goal —
+# on timeout we fall back to the basic caption and still send the PDF instantly.
+SUMMARY_TIMEOUT_SEC = int(os.environ.get("SUMMARY_TIMEOUT_SEC", 30))
 
 # ── Step 5: WhatsApp Message Template (delivery OUTSIDE the 24h window) ──
 # Meta only allows pushing a PDF to a user who has NOT messaged you in the last
