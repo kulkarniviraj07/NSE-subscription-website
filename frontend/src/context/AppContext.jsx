@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect, useCallback } from "react";
 import useAuth from "../hooks/useAuth";
 import { getCompanies, getUserCompanies, addCompany as addCompanyApi, removeCompany as removeCompanyApi } from "../api/company.api";
-import { getCurrentSubscription, activateFreePlan } from "../api/subscription.api";
+import { getCurrentSubscription, activateFreePlan, activatePremiumPlan } from "../api/subscription.api";
 import { getPlans } from "../api/plan.api";
 
 export const AppContext = createContext(null);
@@ -242,53 +242,36 @@ export function AppProvider({ children }) {
     };
 
     /**
-     * Mock premium subscription upgrade trigger
+     * Activate PREMIUM (TESTING MODE — no payment).
+     * Calls the backend, which deactivates any current plan and grants a
+     * real ACTIVE premium subscription, then re-hydrates app state.
      */
-    const mockUpgradePremium = async (mockPlanId) => {
+    const handleActivatePremium = async () => {
         try {
             setLoading(true);
-            
-            // Hardcode update mock or fetch premium details
-            const premiumPlan = plans.find(p => p.name === "PREMIUM") || {
-                name: "PREMIUM",
-                company_limit: 25,
-                duration_days: 30
-            };
+            const data = await activatePremiumPlan();
+            if (data?.subscription) {
+                setCurrentSubscription(data.subscription);
+            }
 
-            // Calculate mock expiry dates
-            const expiry = new Date();
-            expiry.setDate(expiry.getDate() + premiumPlan.duration_days);
-
-            // Override current subscription locally to reflect dynamic state changes
-            const mockSub = {
-                id: "sub-premium-mock",
-                plan_name: premiumPlan.name,
-                company_limit: premiumPlan.company_limit,
-                status: "ACTIVE",
-                ends_at: expiry.toISOString()
-            };
-
-            setCurrentSubscription(mockSub);
+            const premiumPlan = plans.find(p => p.name === "PREMIUM");
+            const limit = premiumPlan?.company_limit || data?.subscription?.company_limit || 150;
 
             setActivities(prev => [
                 {
                     id: `act-${Date.now()}`,
                     title: "Upgraded to PREMIUM",
                     time: "Just now",
-                    desc: "Upgraded subscription plan to Premium. Watch Limit expanded to 25 companies.",
+                    desc: `Premium activated. Watchlist limit expanded to ${limit} companies.`,
                     status: "success"
                 },
                 ...prev
             ]);
-            
-            // Wait for visual effect, then reload
-            setTimeout(async () => {
-                await loadAppData();
-            }, 800);
 
+            await loadAppData();
         } catch (err) {
-            console.error("UPGRADE ERROR:", err);
-            throw new Error("Plan upgrade failed. Please try again.");
+            console.error("PREMIUM PLAN ERROR:", err);
+            throw new Error(err?.response?.data?.message || "Failed to activate Premium subscription.");
         } finally {
             setLoading(false);
         }
@@ -305,9 +288,9 @@ export function AppProvider({ children }) {
         error,
         loadAppData,
         handleActivateFree,
+        handleActivatePremium,
         addTrackedCompany,
         removeTrackedCompany,
-        mockUpgradePremium,
     };
 
     return (

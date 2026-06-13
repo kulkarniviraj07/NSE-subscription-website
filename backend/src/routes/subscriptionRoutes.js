@@ -25,6 +25,17 @@ router.post(
 
 );
 
+router.post(
+
+    "/premium",
+
+    authMiddleware,
+
+    subscriptionController
+        .activatePremiumPlan
+
+);
+
 router.get(
 
     "/current",

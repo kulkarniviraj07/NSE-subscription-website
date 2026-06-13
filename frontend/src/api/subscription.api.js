@@ -17,3 +17,12 @@ export async function activateFreePlan() {
     const response = await API.post("/subscriptions/free");
     return response.data;
 }
+
+/**
+ * Activate the PREMIUM plan directly (TESTING MODE — no payment).
+ * @returns {Promise<Object>} The newly activated subscription
+ */
+export async function activatePremiumPlan() {
+    const response = await API.post("/subscriptions/premium");
+    return response.data;
+}

@@ -104,9 +104,59 @@ async function getCurrentSubscription(
 
 }
 
+async function activatePremiumPlan(
+    req,
+    res
+) {
+
+    try {
+
+        // TESTING MODE: no payment. Deactivate any current plan and grant
+        // PREMIUM directly so testers can unlock the full company limit.
+        const subscription =
+
+            await subscriptionService
+                .createPremiumSubscription(
+
+                    req.user.id
+
+                );
+
+        return res.json({
+
+            success: true,
+
+            subscription
+
+        });
+
+    }
+    catch (err) {
+
+        console.error(
+            err
+        );
+
+        return res
+            .status(500)
+            .json({
+
+                success: false,
+
+                message:
+                    "Failed to activate premium plan"
+
+            });
+
+    }
+
+}
+
 module.exports = {
 
     activateFreePlan,
+
+    activatePremiumPlan,
 
     getCurrentSubscription
 

@@ -2,18 +2,19 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useApp from "../../hooks/useApp";
 import Button from "../../components/ui/Button";
-import { createOrder } from "../../api/payment.api";
 
 /**
  * Simplified Plan Selection Page.
  * Displays exactly two pricing cards with minimal text and large action buttons.
+ *
+ * TESTING MODE: PREMIUM is activated instantly with no payment step.
  */
 export function PlanSelection() {
     const {
         plans,
         currentSubscription,
         handleActivateFree,
-        loadAppData,
+        handleActivatePremium,
         loading
     } = useApp();
 
@@ -25,7 +26,7 @@ export function PlanSelection() {
     // Fallback plans
     const activePlans = plans.length > 0 ? plans : [
         { id: 1, name: "FREE", price: 0, company_limit: 5, duration_days: 3650 },
-        { id: 2, name: "PREMIUM", price: 119, company_limit: 25, duration_days: 30 }
+        { id: 2, name: "PREMIUM", price: 119, company_limit: 150, duration_days: 30 }
     ];
 
     /**
@@ -37,10 +38,10 @@ export function PlanSelection() {
         setSuccessMessage("");
         try {
             await handleActivateFree();
-            setSuccessMessage("FREE Plan activated successfully! Redirecting...");
+            setSuccessMessage("FREE plan activated! Taking you to your watchlist...");
             setTimeout(() => {
-                navigate("/dashboard");
-            }, 1500);
+                navigate("/companies");
+            }, 1200);
         } catch (err) {
             setErrorMessage(err.message || "Failed to activate Free subscription.");
         } finally {
@@ -49,62 +50,20 @@ export function PlanSelection() {
     };
 
     /**
-     * Activates the PREMIUM plan (Razorpay order + verification)
+     * Activates the PREMIUM plan instantly (TESTING MODE — no payment).
      */
-    const handleSelectPremium = async (plan) => {
+    const handleSelectPremium = async () => {
         setActionLoading("PREMIUM");
         setErrorMessage("");
         setSuccessMessage("");
-
         try {
-            const orderData = await createOrder();
-            const order = orderData.order;
-
-            if (!window.Razorpay) {
-                setErrorMessage("Razorpay SDK not loaded");
-                return;
-            }
-
-            const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-                amount: order.amount,
-                currency: order.currency,
-                name: "EquityAlerts",
-                description: "Premium Subscription",
-                order_id: order.id,
-                handler: async function (response) {
-                    try {
-                        const { verifyPayment } = await import("../../api/payment.api");
-                        await verifyPayment({
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature
-                        });
-                        await loadAppData();
-
-                        setSuccessMessage("Premium subscription activated");
-                        navigate("/companies");
-                    } catch (err) {
-                        console.error(err);
-                        setErrorMessage("Payment verification failed");
-                    }
-                },
-                prefill: {
-                    name: localStorage.getItem("name") || "",
-                    contact: localStorage.getItem("mobile") || ""
-                },
-                theme: {
-                    color: "#33D097"
-                }
-            };
-
-            const razorpay = new window.Razorpay(options);
-            razorpay.open();
+            await handleActivatePremium();
+            setSuccessMessage("Premium activated! Taking you to your watchlist...");
+            setTimeout(() => {
+                navigate("/companies");
+            }, 1200);
         } catch (err) {
-            console.error(err);
-            setErrorMessage(
-                err?.response?.data?.message || "Order creation failed"
-            );
+            setErrorMessage(err.message || "Failed to activate Premium subscription.");
         } finally {
             setActionLoading(null);
         }
@@ -177,13 +136,20 @@ export function PlanSelection() {
                                     </p>
                                 </div>
 
-                                <div className="flex items-baseline gap-1 border-b border-[#222A38] pb-4">
-                                    <span className="text-4xl font-bold text-[#E3E5EA] tracking-tight font-mono">
-                                        ₹{parseFloat(plan.price).toFixed(0)}
-                                    </span>
-                                    <span className="text-xs text-[#9298A0] font-semibold uppercase">
-                                        {isPremiumPlan ? "/ month" : ""}
-                                    </span>
+                                <div className="border-b border-[#222A38] pb-4">
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-4xl font-bold text-[#E3E5EA] tracking-tight font-mono">
+                                            ₹{parseFloat(plan.price).toFixed(0)}
+                                        </span>
+                                        <span className="text-xs text-[#9298A0] font-semibold uppercase">
+                                            {isPremiumPlan ? "/ month" : ""}
+                                        </span>
+                                    </div>
+                                    {isPremiumPlan && (
+                                        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-[#33D097] font-mono">
+                                            Free during testing — no card needed
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Custom Stock Market Features list */}
@@ -237,7 +203,7 @@ export function PlanSelection() {
                                     </button>
                                 ) : (
                                     <Button
-                                        onClick={isPremiumPlan ? () => handleSelectPremium(plan) : handleSelectFree}
+                                        onClick={isPremiumPlan ? handleSelectPremium : handleSelectFree}
                                         loading={itemLoading || loading}
                                         disabled={actionLoading !== null}
                                         variant="primary"
@@ -246,7 +212,7 @@ export function PlanSelection() {
                                             : "bg-transparent border border-[#222A38] !text-[#E3E5EA] hover:bg-[#151921] focus:!ring-[#222A38]"
                                             }`}
                                     >
-                                        {isPremiumPlan ? "Activate Pro Suite" : "Select Starter Plan"}
+                                        {isPremiumPlan ? "Activate Premium — Free" : "Select Starter Plan"}
                                     </Button>
                                 )}
                             </div>
