@@ -204,6 +204,33 @@ def generate_pdf_summary(file_path: str) -> str | None:
         return None
 
 
+def _format_exchange_time(raw) -> str:
+    """Format the NSE/BSE announcement timestamp for display in the message."""
+    if not raw:
+        return "time not available"
+    s = str(raw).strip().replace("T", " ")
+    # Drop fractional seconds / timezone noise (e.g. "2026-06-14 09:01:23.000").
+    if "." in s:
+        s = s.split(".")[0]
+    return f"{s} IST"
+
+
+def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
+    """
+    Prepend the exchange filing time (and company) to a caption so every
+    delivered PDF clearly shows WHEN it was uploaded on NSE/BSE. Capped at
+    WhatsApp's 1024-char caption limit.
+    """
+    header = (
+        f"🏢 *{company}* ({symbol})\n"
+        f"🕒 Filed on exchange: {_format_exchange_time(raw_time)}"
+    )
+    caption = f"{header}\n\n{body}".strip()
+    if len(caption) > 1024:
+        caption = caption[:1021].rstrip() + "..."
+    return caption
+
+
 def _build_caption(file_path, fallback_caption):
     """Return cached AI summary if available; otherwise generate and cache it."""
     file_key = os.path.basename(file_path).strip()
@@ -336,10 +363,10 @@ def process_new_filings():
 
         fallback = (
             f"📄 *{company}* — {filing_type}\n"
-            f"🏦 NSE Symbol: {symbol}\n"
-            f"📅 {filing.get('created_at', '')}"
+            f"🏦 Symbol: {symbol}"
         )
-        caption  = _build_caption(file_path, fallback)
+        body     = _build_caption(file_path, fallback)
+        caption  = _caption_with_time(body, company, symbol, filing.get('created_at'))
         file_key = os.path.basename(file_path).strip()
         bot_db.save_filing_summary(file_key, caption)  # for the Full Summary button
 
@@ -433,10 +460,10 @@ def deliver_backfill_for_subscribers():
 
                     fallback = (
                         f"📄 *{name}* — New Filing\n"
-                        f"🏦 NSE Symbol: {symbol}\n"
-                        f"📅 {row['announcement_time']}"
+                        f"🏦 Symbol: {symbol}"
                     )
-                    caption = _build_caption(file_path, fallback)
+                    body    = _build_caption(file_path, fallback)
+                    caption = _caption_with_time(body, name, symbol, row['announcement_time'])
                     bot_db.save_filing_summary(file_key, caption)  # for Full Summary button
 
                     # Only marks sent on confirmed success; queues on failure.

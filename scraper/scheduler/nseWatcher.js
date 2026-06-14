@@ -1,5 +1,5 @@
-const fetch =
-    require("../services/fetchNseAnnouncements");
+const fetchNsePage =
+    require("../services/fetchNseGlobal");
 
 const config =
     require("../services/config");
@@ -7,18 +7,10 @@ const config =
 const repo =
     require("../repositories/announcementRepository");
 
-const stateRepo =
-    require(
-        "../repositories/companyStateRepository"
-    );
-
 const jobRepo =
     require(
         "../repositories/downloadJobRepository"
     );
-
-const chunk =
-    require("../services/chunkArray");
 
 const symbolProvider =
     require("../services/symbolProvider");
@@ -30,246 +22,105 @@ const processing =
     new Set();
 
 
-async function processCompany(
-    symbol
+/**
+ * Persist + queue a single announcement (already known to belong to a
+ * subscribed symbol). Dedup is handled by the DB: repo.save() ON CONFLICT
+ * (pdf_url) DO NOTHING returns false for anything we've already seen, so we
+ * only queue a download for genuinely-new filings.
+ */
+async function saveAnnouncement(
+    symbol,
+    item
 ) {
 
-    metrics.increment(
-        "companies"
-    );
+    if (
+        !item.attchmntFile
+    ) {
+        return;
+    }
+
+    if (
+        processing.has(item.attchmntFile)
+    ) {
+        return;
+    }
+
+    processing.add(item.attchmntFile);
 
     try {
 
-        console.log(
-            `\nChecking ${symbol}`
-        );
+        const filename =
+            `${symbol}_${item.dt}.pdf`;
 
-        const state =
+        const inserted =
 
-            await stateRepo.get(
-                symbol
-            );
+            await repo.save({
 
-        const lastSeen =
+                company_symbol:
+                    symbol,
 
-            state
-                ?
-                new Date(
-                    state.last_announcement_time
-                )
-                :
-                null;
+                title:
+                    item.desc,
 
-        const data =
-            await fetch(symbol);
-
-        const recent =
-
-            data.slice(
-                0,
-                config.maxRecords
-            );
-
-        let newestTime =
-            lastSeen;
-
-        for (
-            const item
-            of recent
-        ) {
-
-            if (
-                !item.attchmntFile
-            )
-                continue;
-
-            const itemTime =
-
-                new Date(
-                    item.sort_date
-                );
-
-            if (
-
-                lastSeen
-                &&
-                itemTime
-                <=
-                lastSeen
-
-            ) {
-
-                console.log(
-                    `No new announcements:
-${symbol}`
-                );
-
-                break;
-
-            }
-
-            if (
-                processing.has(
-                    item.attchmntFile
-                )
-            ) {
-
-                continue;
-
-            }
-
-            processing.add(
-                item.attchmntFile
-            );
-
-            try {
-
-                const filename =
-                    `${symbol}_${item.dt}.pdf`;
-
-                const inserted =
-
-                    await repo.save({
-
-                        company_symbol:
-                            symbol,
-
-                        title:
-                            item.desc,
-
-                        pdf_url:
-                            item.attchmntFile,
-
-                        local_path:
-                            `storage/pdf/${filename}`,
-
-                        announcement_time:
-                            item.sort_date,
-
-                        download_status:
-                            "PENDING"
-
-                    });
-
-                if (
-                    !inserted
-                ) {
-
-                    continue;
-
-                }
-
-                console.log(
-                    `
-Queued:
-${symbol}
-
-Title:
-${item.desc}
-`
-                );
-
-                metrics.increment(
-                    "downloads"
-                );
-
-                await jobRepo.add(
-
+                pdf_url:
                     item.attchmntFile,
 
-                    filename
+                local_path:
+                    `storage/pdf/${filename}`,
 
-                );
+                announcement_time:
+                    item.sort_date,
 
-                if (
+                download_status:
+                    "PENDING"
 
-                    !newestTime
-                    ||
-                    itemTime
-                    >
-                    newestTime
-
-                ) {
-
-                    newestTime =
-                        itemTime;
-
-                }
-
-            }
-            finally {
-
-                processing.delete(
-                    item.attchmntFile
-                );
-
-            }
-
-        }
+            });
 
         if (
-            newestTime
+            !inserted
         ) {
-
-            await stateRepo.update(
-
-                symbol,
-
-                newestTime
-
-            );
-
+            return;
         }
 
+        console.log(
+            `\nNSE Queued: ${symbol}\nTitle: ${item.desc}`
+        );
+
+        metrics.increment("downloads");
+
+        await jobRepo.add(
+            item.attchmntFile,
+            filename
+        );
+
     }
-    catch (err) {
+    finally {
 
-        metrics.increment(
-            "errors"
-        );
-
-        console.log(
-            `\nWorker Error:
-${symbol}`
-        );
-
-        console.log(
-            err.message
-        );
+        processing.delete(item.attchmntFile);
 
     }
 
 }
 
+
 async function checkAnnouncements() {
 
-    metrics.increment(
-        "cycles"
-    );
+    metrics.increment("cycles");
 
     console.log(
-        "\n=== New Cycle ==="
+        "\n=== NSE Cycle ==="
     );
 
+    // Circuit breaker — don't pile on if downloads are badly backed up.
     const pending =
-
         await jobRepo.pendingCount();
 
     if (
-
-        pending
-        >
-        config.maxPendingJobs
-
+        pending > config.maxPendingJobs
     ) {
 
         console.log(
-            `
-Circuit Breaker Active
-
-Pending Jobs:
-${pending}
-`
+            `\nCircuit Breaker Active — Pending Jobs: ${pending}`
         );
 
         return;
@@ -277,7 +128,6 @@ ${pending}
     }
 
     const symbols =
-
         await symbolProvider.getSymbols();
 
     if (
@@ -292,49 +142,69 @@ ${pending}
 
     }
 
+    const subscribedSet =
+        new Set(
+            symbols.map(s => String(s).toUpperCase().trim())
+        );
+
     console.log(
-        `\nNSE Monitoring ${symbols.length} subscribed companies`
+        `\nNSE monitoring ${subscribedSet.size} subscribed companies via global feed`
     );
 
-    const size =
+    // Pull a few pages of the GLOBAL feed (newest first). A handful of pages
+    // covers far more than one poll-interval's worth of new announcements,
+    // regardless of how many companies are subscribed.
+    const pages =
+        Number(config.nseGlobalPages) || 3;
 
-        Math.ceil(
-
-            symbols.length
-            /
-            config.workers
-
-        );
-
-    const groups =
-
-        chunk(
-
-            symbols,
-
-            size
-
-        );
+    const seenSymbols =
+        new Set();
 
     for (
-        const group
-        of groups
+        let p = 1;
+        p <= pages;
+        p++
     ) {
 
-        await Promise.all(
+        const records =
+            await fetchNsePage(p);
 
-            group.map(
-                processCompany
-            )
+        if (
+            !Array.isArray(records) ||
+            records.length === 0
+        ) {
+            break;
+        }
 
-        );
+        for (
+            const item
+            of records
+        ) {
+
+            const sym =
+                String(item.symbol || "")
+                    .toUpperCase()
+                    .trim();
+
+            if (
+                !subscribedSet.has(sym)
+            ) {
+                continue;
+            }
+
+            seenSymbols.add(sym);
+
+            await saveAnnouncement(sym, item);
+
+        }
 
     }
 
+    metrics.increment("companies", seenSymbols.size);
     metrics.print();
 
     console.log(
-        "\nCycle Complete"
+        "\nNSE Cycle Complete"
     );
 
 }

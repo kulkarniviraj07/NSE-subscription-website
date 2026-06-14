@@ -1,5 +1,5 @@
-const fetch =
-    require("../services/fetchBseAnnouncements");
+const fetchBseGlobal =
+    require("../services/fetchBseGlobal");
 
 const repo =
     require("../repositories/announcementRepository");
@@ -16,153 +16,92 @@ const symbolProvider =
 const metrics =
     require("../services/metrics");
 
-let lastUnmappedKey = "";
-
-
 const processing =
     new Set();
 
-async function processCompany(
+
+async function saveAnnouncement(
     symbol,
-    scripCode
+    item
 ) {
+
+    if (
+        !item.attchmntFile
+    ) {
+        return;
+    }
+
+    if (
+        processing.has(item.attchmntFile)
+    ) {
+        return;
+    }
+
+    processing.add(item.attchmntFile);
 
     try {
 
-        console.log(
-            `\nChecking BSE ${symbol}`
-        );
+        const filename =
+            `BSE_${symbol}_${item.dt}.pdf`;
 
-        const data =
-            await fetch(
-                scripCode,
-                symbol
-            );
+        const inserted =
 
-        for (
-            const item
-            of data
-        ) {
+            await repo.save({
 
-            if (
-                !item.attchmntFile
-            ) {
-                continue;
-            }
+                company_symbol:
+                    symbol,
 
-            if (
-                processing.has(
-                    item.attchmntFile
-                )
-            ) {
-                continue;
-            }
+                title:
+                    item.desc,
 
-            processing.add(
-                item.attchmntFile
-            );
-
-            try {
-
-                const filename =
-                    `BSE_${symbol}_${item.dt}.pdf`;
-
-
-                const inserted =
-
-                    await repo.save({
-
-                        company_symbol:
-                            symbol,
-
-                        title:
-                            item.desc,
-
-                        pdf_url:
-                            item.attchmntFile,
-
-                        local_path:
-                            `storage/pdf/${filename}`,
-
-                        announcement_time:
-                            item.sort_date,
-
-                        download_status:
-                            "PENDING"
-
-                    });
-
-                if (
-                    !inserted
-                ) {
-
-                    continue;
-
-                }
-
-                console.log(
-                    `
-
-BSE Queued:
-
-${symbol}
-
-Title:
-${item.desc}
-
-`
-                );
-
-                await jobRepo.add(
-
+                pdf_url:
                     item.attchmntFile,
 
-                    filename
+                local_path:
+                    `storage/pdf/${filename}`,
 
-                );
+                announcement_time:
+                    item.sort_date,
 
-                metrics.increment(
-                    "downloads"
-                );
+                download_status:
+                    "PENDING"
 
-            }
-            finally {
+            });
 
-                processing.delete(
-                    item.attchmntFile
-                );
-
-            }
-
+        if (
+            !inserted
+        ) {
+            return;
         }
 
+        console.log(
+            `\nBSE Queued: ${symbol}\nTitle: ${item.desc}`
+        );
+
+        await jobRepo.add(
+            item.attchmntFile,
+            filename
+        );
+
+        metrics.increment("downloads");
+
     }
-    catch (err) {
+    finally {
 
-        metrics.increment(
-            "errors"
-        );
-
-        console.log(
-            `BSE Error: ${symbol}`
-        );
-
-        console.log(
-            err.message
-        );
+        processing.delete(item.attchmntFile);
 
     }
 
 }
+
 
 async function checkBseAnnouncements() {
 
     console.log(
         "\n=== BSE Cycle ==="
     );
-    metrics.increment(
-        "cycles"
-    );
+
+    metrics.increment("cycles");
 
     const symbols =
         await symbolProvider.getSymbols();
@@ -179,30 +118,28 @@ async function checkBseAnnouncements() {
 
     }
 
-    const companies =
-        [];
-
-    const unmapped =
-        [];
+    // Reverse map: BSE scrip code -> subscribed NSE symbol. Only companies
+    // that actually have a BSE scrip code are monitored on BSE.
+    const scripToSymbol =
+        new Map();
 
     for (
-        const symbol
+        const raw
         of symbols
     ) {
 
+        const symbol =
+            String(raw).toUpperCase().trim();
+
+        const code =
+            bseCompanies[symbol];
+
         if (
-            bseCompanies[symbol]
+            code
         ) {
 
-            companies.push([
-                symbol,
-                bseCompanies[symbol]
-            ]);
-
-        }
-        else {
-
-            unmapped.push(
+            scripToSymbol.set(
+                String(code).trim(),
                 symbol
             );
 
@@ -210,43 +147,56 @@ async function checkBseAnnouncements() {
 
     }
 
-    console.log(
-        `\nBSE Monitoring ${companies.length} subscribed companies`
-    );
-
-    // Warn only when the unmapped set changes, not every cycle
-    const unmappedKey =
-        unmapped.join(",");
-
     if (
-        unmapped.length > 0
-        &&
-        unmappedKey !== lastUnmappedKey
+        scripToSymbol.size === 0
     ) {
 
         console.log(
-            `\nNo BSE scrip code (NSE only): ${unmapped.join(", ")}`
+            "\nNo subscribed companies have a BSE scrip code. Skipping BSE cycle."
         );
+
+        return;
 
     }
 
-    lastUnmappedKey =
-        unmappedKey;
+    console.log(
+        `\nBSE monitoring ${scripToSymbol.size} subscribed companies via global feed`
+    );
+
+    // One request returns ALL companies' recent announcements; filter locally.
+    const records =
+        await fetchBseGlobal();
+
+    let matched =
+        0;
 
     for (
-        const [symbol, scripCode]
-        of companies
+        const item
+        of records
     ) {
-        metrics.increment(
-            "companies"
-        );
-        await processCompany(
-            symbol,
-            scripCode
-        );
+
+        const symbol =
+            scripToSymbol.get(item.scrip_cd);
+
+        if (
+            !symbol
+        ) {
+            continue;
+        }
+
+        matched++;
+
+        await saveAnnouncement(symbol, item);
 
     }
+
+    metrics.increment("companies", matched);
     metrics.print();
+
+    console.log(
+        "\nBSE Cycle Complete"
+    );
+
 }
 
 module.exports =

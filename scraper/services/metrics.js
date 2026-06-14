@@ -14,10 +14,11 @@ const stats = {
 };
 
 function increment(
-    key
+    key,
+    by = 1
 ) {
 
-    stats[key]++;
+    stats[key] += by;
 
 }
 
