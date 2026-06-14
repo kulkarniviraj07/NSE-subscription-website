@@ -25,6 +25,7 @@ load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=True)
 # ─────────────────────────────────────────────────────────────────────────────
 import argparse
 import json
+import re
 import sys
 import urllib.request
 import tempfile
@@ -152,8 +153,18 @@ Your task:
 6. Format monetary values with Rs symbol and Cr/Mn suffix as shown in the document.
 7. Format percentage values with % suffix.
 
-IMPORTANT:
-- If a metric is not found, skip it entirely (do not hallucinate values).
+CRITICAL ANTI-HALLUCINATION RULES (read carefully):
+- Return an EMPTY "metrics" array UNLESS the document is an actual quarterly or
+  annual FINANCIAL RESULTS statement that contains a real results table with
+  reported figures. Board-meeting notices, intimations, trading-window closures,
+  newspaper publications, presentations without a results table, and any
+  document that merely mentions the word "results" WITHOUT real reported numbers
+  must return an empty metrics array.
+- NEVER fabricate, infer, estimate, guess, or carry over the example values
+  shown in this prompt or the schema. Those examples are formatting hints ONLY.
+- Every number you output MUST appear verbatim in the PDF TEXT below. If you
+  cannot find a metric's number literally in the text, do not output that metric.
+- If a metric is not found, skip it entirely.
 - Use exact numbers from the PDF — do not round or approximate.
 - Return ONLY valid JSON matching the schema. No markdown fences, no explanation.
 """
@@ -377,6 +388,69 @@ def summarize_content(
 # 5.  Main pipeline
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── Anti-hallucination guards ────────────────────────────────────────────────
+
+_RESULT_PHRASES = (
+    "financial results", "statement of profit and loss", "profit and loss",
+    "quarter ended", "period ended", "year ended", "half year ended",
+    "audited financial", "unaudited financial",
+)
+
+_METRIC_KEYWORDS = (
+    "revenue", "total income", "total revenue", "profit before tax",
+    "profit after tax", "net profit", "ebitda", "operating profit",
+    "earnings per share", "total expenses", "total comprehensive income",
+)
+
+# Monetary-looking figures: "1,234.56", "12,34,567" (Indian grouping) or "934.17".
+_MONEY_RE = re.compile(r"\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+\.\d{2}")
+
+
+def looks_like_financial_results(pdf_text: str) -> bool:
+    """
+    Only treat a PDF as a quarterly/annual RESULTS document (and run financial
+    metric extraction) when it really looks like one.
+
+    Most exchange filings — board-meeting notices, trading-window closures,
+    Reg 30 disclosures, newspaper ads, presentations without a results table —
+    are NOT results statements and have no financial table. Running metric
+    extraction on them just makes the model invent numbers. We require a results
+    phrase, at least two distinct metric terms, AND a table's worth of monetary
+    figures (which a mere notice/intimation will not have).
+    """
+    if not pdf_text:
+        return False
+    low = pdf_text.lower()
+    has_phrase   = any(p in low for p in _RESULT_PHRASES)
+    keyword_hits = sum(1 for k in _METRIC_KEYWORDS if k in low)
+    money_count  = len(_MONEY_RE.findall(pdf_text))
+    return has_phrase and keyword_hits >= 2 and money_count >= 12
+
+
+def verify_metrics_against_text(summary: "FinancialSummary", pdf_text: str) -> int:
+    """
+    Drop any metric whose numbers never appear in the source text — a strong
+    sign the model fabricated them. Conservative: a metric is kept if ANY of its
+    period values matches the text. Returns the number of metrics kept.
+    """
+    text_digits = re.sub(r"[,\s]", "", pdf_text or "")
+    kept = []
+    for m in summary.metrics:
+        for p in m.periods:
+            num = re.search(r"-?\d[\d,]*\.?\d*", p.value or "")
+            if not num:
+                continue
+            core     = num.group(0).replace(",", "").rstrip(".")
+            int_part = core.split(".")[0]
+            # Match the full number, or at least a 3+ digit integer part, in the
+            # comma-stripped source text.
+            if (core and core in text_digits) or (len(int_part) >= 3 and int_part in text_digits):
+                kept.append(m)
+                break
+    summary.metrics = kept
+    return len(kept)
+
+
 def process_pdf(
     pdf_source: str,
     provider: str = "google",
@@ -413,17 +487,25 @@ def process_pdf(
         )
     print(f"      Extracted {len(pdf_text):,} characters.", file=sys.stderr)
 
-    # Step 2: LLM financial extraction
+    # Step 2: LLM financial extraction — ONLY for genuine results documents.
     _model_name = model or PROVIDER_DEFAULTS.get(provider, "default")
-    print(f"[2/3] Extracting financials via {provider} / {_model_name} ...", file=sys.stderr)
     summary     = None
     company     = "Unknown Company"
-    try:
-        summary = extract_financials(pdf_text, provider=provider, model=model)
-        company = summary.company_name or company
-        print(f"      Found {len(summary.metrics)} metric(s) for '{company}'.", file=sys.stderr)
-    except Exception as e:
-        print(f"      Financial extraction failed ({e}) — will use content summary.", file=sys.stderr)
+
+    if looks_like_financial_results(pdf_text):
+        print(f"[2/3] Results document detected — extracting financials via "
+              f"{provider} / {_model_name} ...", file=sys.stderr)
+        try:
+            summary = extract_financials(pdf_text, provider=provider, model=model)
+            company = summary.company_name or company
+            # Defence in depth: drop any metric whose numbers aren't in the PDF.
+            verified = verify_metrics_against_text(summary, pdf_text)
+            print(f"      Kept {verified} metric(s) verified against source text.", file=sys.stderr)
+        except Exception as e:
+            print(f"      Financial extraction failed ({e}) — will use content summary.", file=sys.stderr)
+    else:
+        print("[2/3] Not a financial-results document — skipping metric extraction "
+              "to avoid fabricated numbers; using a plain content summary.", file=sys.stderr)
 
     if save_json and summary:
         json_path = Path(pdf_source).stem + "_financials.json"
