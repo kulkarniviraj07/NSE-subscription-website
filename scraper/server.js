@@ -119,6 +119,14 @@ async function start() {
     // the download worker starts touching failed_jobs
     await ensureSchema();
 
+    // Prime NSE session cookies up front so the very first cycle's API calls
+    // succeed (200) instead of 401/timeout.
+    try {
+        await require("./services/nseSession").refresh();
+    } catch (e) {
+        console.log("NSE cookie prime skipped:", e.message);
+    }
+
     // Start the download worker only after the schema check
     require(
         "./workers/downloadWorker"

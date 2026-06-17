@@ -76,7 +76,8 @@ def fetch_new_filings():
                 {config.COL_COMPANY_NAME}   AS company_name,
                 {config.COL_FILE_PATH}      AS file_path,
                 {config.COL_FILING_TYPE}    AS filing_type,
-                {config.COL_CREATED_AT}     AS created_at
+                {config.COL_CREATED_AT}     AS created_at,
+                EXTRACT(EPOCH FROM (NOW() - created_at))::int AS age_seconds
             FROM {config.FILINGS_TABLE}
             WHERE {config.COL_IS_SENT} = FALSE
               AND download_status = 'DOWNLOADED'
@@ -458,6 +459,7 @@ def process_new_filings():
             "file_path":   file_path,
             "filing_type": filing_type,
             "raw_time":    filing.get("created_at"),
+            "age_seconds": filing.get("age_seconds"),
             "subscribers": subscribers,
             "file_key":    os.path.basename(file_path).strip(),
         })
@@ -485,7 +487,9 @@ def process_new_filings():
                 j["company"], j["symbol"], j["raw_time"],
             )
 
-        print(f"📤 Sending {j['symbol']} '{j['filing_type']}' to {len(j['subscribers'])} subscriber(s)...")
+        age = j.get("age_seconds")
+        age_note = f" [saved {age}s ago by scraper]" if age is not None else ""
+        print(f"📤 Sending {j['symbol']} '{j['filing_type']}' to {len(j['subscribers'])} subscriber(s)...{age_note}")
         all_sent = True
         for phone in j["subscribers"]:
             if bot_db.is_filing_sent(phone, j["file_key"]):
