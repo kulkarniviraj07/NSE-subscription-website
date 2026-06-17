@@ -43,7 +43,7 @@ POLL_INTERVAL_SEC = int(os.environ.get("POLL_INTERVAL_SEC", 15))    # Live dispa
 # on a long interval, and must NEVER block the live dispatch above. Keeping it
 # off the hot path is what makes new announcements go out within ~1 minute
 # instead of being stuck behind a long backfill sweep.
-BACKFILL_INTERVAL_SEC = int(os.environ.get("BACKFILL_INTERVAL_SEC", 600))   # 10 minutes
+BACKFILL_INTERVAL_SEC = int(os.environ.get("BACKFILL_INTERVAL_SEC", 120))   # 2 min safety-net (live path handles the fast case)
 
 # Max seconds to wait for ONE AI summary. The summary is generated in-process
 # (no per-PDF subprocess cold start) and several at a time; this hard cap means

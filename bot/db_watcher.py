@@ -164,8 +164,12 @@ def get_subscribers_for_symbol_pg(symbol: str) -> list:
             phones.append(p)
         return phones
     except Exception as e:
+        # Return None (NOT []) so the caller can tell a transient lookup FAILURE
+        # apart from a genuine "nobody is subscribed". Treating a failed lookup
+        # as "no subscribers" used to mark the filing notified and drop it to the
+        # slow 10-min backfill — the cause of occasional very-late deliveries.
         print(f"❌ Error fetching PG subscribers for {symbol}: {e}")
-        return []
+        return None
 
 
 # ── In-process AI summary engine ─────────────────────────────────────────────
@@ -439,6 +443,12 @@ def process_new_filings():
         filing_type = filing.get("filing_type") or "New Filing"
 
         subscribers = get_subscribers_for_symbol_pg(symbol)
+        if subscribers is None:
+            # Lookup FAILED (transient DB error) — do NOT mark notified; leave it
+            # is_notified=FALSE so the very next poll retries instead of dropping
+            # it to the slow backfill.
+            print(f"⚠️  Subscriber lookup failed for {symbol}; will retry next poll.")
+            continue
         if not subscribers:
             mark_notified_in_pg(filing_id)
             print(f"ℹ️  No subscribers for {symbol}, skipping.")
