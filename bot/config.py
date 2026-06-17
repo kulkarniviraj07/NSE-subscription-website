@@ -45,10 +45,20 @@ POLL_INTERVAL_SEC = int(os.environ.get("POLL_INTERVAL_SEC", 15))    # Live dispa
 # instead of being stuck behind a long backfill sweep.
 BACKFILL_INTERVAL_SEC = int(os.environ.get("BACKFILL_INTERVAL_SEC", 600))   # 10 minutes
 
-# Max seconds to wait for the LLM PDF summary subprocess. Kept short so a slow
-# or hung summary can never delay PDF delivery past the "within a minute" goal —
-# on timeout we fall back to the basic caption and still send the PDF instantly.
-SUMMARY_TIMEOUT_SEC = int(os.environ.get("SUMMARY_TIMEOUT_SEC", 30))
+# Max seconds to wait for ONE AI summary. The summary is generated in-process
+# (no per-PDF subprocess cold start) and several at a time; this hard cap means
+# a slow/hung LLM call can never push delivery past the "within a minute" goal —
+# on timeout we send the PDF with the basic caption (company + exchange time +
+# title) instead. Cost is not a concern, so this is generous.
+SUMMARY_TIMEOUT_SEC = int(os.environ.get("SUMMARY_TIMEOUT_SEC", 35))
+
+# How many AI summaries to generate concurrently. A burst of filings is built in
+# parallel so later PDFs don't wait behind earlier summaries.
+SUMMARY_WORKERS  = int(os.environ.get("SUMMARY_WORKERS", 6))
+
+# LLM used for the AI summary (in-process via output.py / LangChain).
+SUMMARY_PROVIDER = os.environ.get("SUMMARY_PROVIDER", "openai")
+SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 
 # ── Step 5: WhatsApp Message Template (delivery OUTSIDE the 24h window) ──
 # Meta only allows pushing a PDF to a user who has NOT messaged you in the last

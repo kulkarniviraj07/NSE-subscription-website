@@ -217,7 +217,8 @@ def build_chain(provider: str = "google", model: str | None = None):
 
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(model=_model, temperature=0, max_tokens=2048)
+        llm = ChatOpenAI(model=_model, temperature=0, max_tokens=2048,
+                         timeout=25, max_retries=1)
 
     elif provider == "groq":
         from langchain_groq import ChatGroq
@@ -350,7 +351,8 @@ def summarize_content(
         llm = ChatAnthropic(model=_model, temperature=0, max_tokens=512)
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(model=_model, temperature=0, max_tokens=512)
+        llm = ChatOpenAI(model=_model, temperature=0, max_tokens=512,
+                         timeout=25, max_retries=1)
     elif provider == "groq":
         from langchain_groq import ChatGroq
         llm = ChatGroq(model=_model, groq_api_key=os.getenv("GROQ_API_KEY"), temperature=0)

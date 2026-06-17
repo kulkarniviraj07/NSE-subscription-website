@@ -10,11 +10,10 @@
 import os
 import sys
 import time
-import queue
 import threading
 import psycopg2
 import psycopg2.extras
-import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 import config
 import database as bot_db
@@ -168,41 +167,97 @@ def get_subscribers_for_symbol_pg(symbol: str) -> list:
         return []
 
 
-def generate_pdf_summary(file_path: str) -> str | None:
-    """Run the LLM PDF parser in a subprocess using the structured_output virtual environment."""
-    try:
-        venv_python   = sys.executable
-        output_script = os.path.join(os.path.dirname(__file__), "output.py")
+# ── In-process AI summary engine ─────────────────────────────────────────────
+# output.py sits next to this file and its deps (LangChain, pdfplumber, ...) are
+# in the bot image. We import it ONCE and call process_pdf() in-process instead
+# of spawning a fresh Python per PDF — the old subprocess paid ~10s of
+# Python+LangChain startup on EVERY filing, which was the single biggest reason
+# summaries were slow. In-process + parallel (see _caption_pool) lets the
+# summary stay inside the one PDF caption and still land within ~1 minute.
 
-        if not os.path.exists(output_script):
-            print("⚠️ output.py script not found, skipping summary generation.")
-            return None
+_output_mod = None
+_output_import_lock = threading.Lock()
+_output_import_failed = False
 
-        print(f"🤖 Generating AI summary for {os.path.basename(file_path)}...")
 
-        result = subprocess.run(
-            [venv_python, "-X", "utf8", output_script, "--pdf", file_path, "--provider", "openai", "--model", "gpt-4o-mini", "--raw"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=getattr(config, "SUMMARY_TIMEOUT_SEC", 30)
-        )
-
-        if result.returncode == 0:
-            stdout_clean = result.stdout.strip()
-            if "*📢 PureFrame" in stdout_clean:
-                start_idx = stdout_clean.find("*📢 PureFrame")
-                return stdout_clean[start_idx:]
-            return stdout_clean if stdout_clean else None
-        else:
-            stderr_text = result.stderr.strip()
-            print(f"❌ PDF parser failed (code {result.returncode}) for {os.path.basename(file_path)}:")
-            for line in stderr_text.splitlines()[-10:]:   # last 10 lines of traceback
-                print(f"   {line}")
-            return None
-    except Exception as e:
-        print(f"❌ Error generating PDF summary: {e}")
+def _get_output_module():
+    """Import bot/output.py once (lazily) and cache the module (or the failure)."""
+    global _output_mod, _output_import_failed
+    if _output_mod is not None:
+        return _output_mod
+    if _output_import_failed:
         return None
+    with _output_import_lock:
+        if _output_mod is not None:
+            return _output_mod
+        if _output_import_failed:
+            return None
+        try:
+            here = os.path.dirname(os.path.abspath(__file__))
+            if here not in sys.path:
+                sys.path.insert(0, here)
+            import output as _out          # heavy import (LangChain) — paid once
+            _output_mod = _out
+            print("🤖 AI summary engine loaded (in-process).")
+            return _out
+        except Exception as e:
+            print(f"⚠️ Could not load output.py in-process ({e}); summaries disabled.")
+            _output_import_failed = True
+            return None
+
+
+def warm_up_summary_engine():
+    """Pre-import the engine at startup so the first real filing isn't slowed."""
+    try:
+        _get_output_module()
+    except Exception:
+        pass
+
+
+def _run_summary(file_path: str):
+    out = _get_output_module()
+    if out is None:
+        return None
+    msg = out.process_pdf(
+        file_path,
+        provider=getattr(config, "SUMMARY_PROVIDER", "openai"),
+        model=getattr(config, "SUMMARY_MODEL", "gpt-4o-mini"),
+    )
+    if not msg:
+        return None
+    msg = msg.strip()
+    if "*📢 PureFrame" in msg:
+        return msg[msg.find("*📢 PureFrame"):]
+    return msg or None
+
+
+def generate_pdf_summary(file_path: str) -> str | None:
+    """
+    Generate the AI summary for one PDF, in-process, with a HARD timeout so a
+    slow/hung LLM call can never stall delivery. Returns None on any failure
+    (caller then sends the basic caption). Safe to run from several threads at
+    once (the caption pool does exactly that).
+    """
+    print(f"🤖 Generating AI summary for {os.path.basename(file_path)}...")
+    box = {}
+
+    def _worker():
+        try:
+            box["value"] = _run_summary(file_path)
+        except Exception as e:
+            box["error"] = e
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    t.join(getattr(config, "SUMMARY_TIMEOUT_SEC", 35))
+
+    if t.is_alive():
+        print(f"⏱️  Summary timed out for {os.path.basename(file_path)} — sending basic caption.")
+        return None
+    if "error" in box:
+        print(f"❌ Summary failed for {os.path.basename(file_path)}: {box['error']}")
+        return None
+    return box.get("value")
 
 
 def _format_exchange_time(raw) -> str:
@@ -216,24 +271,28 @@ def _format_exchange_time(raw) -> str:
     return f"{s} IST"
 
 
-def _fast_caption(company, symbol, filing_type, raw_time) -> str:
+def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
     """
-    Instant, reliable caption sent WITH the PDF. No LLM call — so PDF delivery
-    is never blocked by (slow, variable) summary generation. The rich AI summary
-    is produced off the hot path and delivered as a follow-up message.
+    Build the SINGLE WhatsApp caption: company + exchange filing time, then the
+    AI summary (or a basic fallback). The exchange time is added HERE, per-send,
+    and is NEVER stored in the summary cache — so it can't be duplicated on
+    re-sends. Capped at WhatsApp's 1024-char caption limit.
     """
-    return (
+    header = (
         f"🏢 *{company}* ({symbol})\n"
-        f"🕒 Filed on exchange: {_format_exchange_time(raw_time)}\n"
-        f"📄 {filing_type}"
+        f"🕒 Filed on exchange: {_format_exchange_time(raw_time)}"
     )
+    caption = f"{header}\n\n{body}".strip()
+    if len(caption) > 1024:
+        caption = caption[:1021].rstrip() + "..."
+    return caption
 
 
 def _build_caption(file_path, fallback_caption):
     """
-    Return the rich AI summary BODY (cached if already generated). NOTE: this
-    caches the time-less summary body only — the exchange time is added per-send
-    by the caption builder, never stored here, so it can't be doubled up.
+    Return the rich AI summary BODY (cached if already generated). Caches the
+    time-less body only — the exchange time is added per-send by
+    _caption_with_time, so it can never be doubled up.
     """
     file_key = os.path.basename(file_path).strip()
     cached   = bot_db.get_filing_summary(file_key)
@@ -248,59 +307,25 @@ def _build_caption(file_path, fallback_caption):
     return fallback_caption
 
 
-# ── Background AI-summary pipeline (OFF the delivery hot path) ────────────────
-# Generating an AI summary spawns a Python subprocess (LangChain + PDF parse +
-# LLM call) that can take many seconds and varies wildly per PDF. Doing it on
-# the send path made delivery time depend on summary time — and a burst of N
-# filings serialized into N summaries, so later PDFs arrived 5-10 min late.
-# Now the PDF goes out immediately with a fast caption, and this single worker
-# generates the rich summary afterwards and sends it as a follow-up message.
+# ── Parallel single-message caption builder ──────────────────────────────────
+# Summaries run IN-PROCESS (generate_pdf_summary) and SEVERAL AT ONCE here, so a
+# burst of filings doesn't serialize into a long queue. This keeps the PDF +
+# summary + exchange-time in ONE WhatsApp message AND within ~1 minute.
 
-_summary_queue: "queue.Queue" = queue.Queue()
+_caption_pool = ThreadPoolExecutor(
+    max_workers=getattr(config, "SUMMARY_WORKERS", 6),
+    thread_name_prefix="summary",
+)
 
 
-def _process_summary_job(job: dict):
-    file_path = job["file_path"]
-    file_key  = job["file_key"]
-    fallback  = job.get("fallback", "")
-    phones    = job.get("phones", [])
-
+def _full_caption(company, symbol, filing_type, file_path, raw_time) -> str:
+    """One-message caption = exchange time + AI summary (or basic fallback)."""
+    fallback = (
+        f"📄 *{company}* — {filing_type}\n"
+        f"🏦 Symbol: {symbol}"
+    )
     body = _build_caption(file_path, fallback)
-    # If no real AI summary was produced, the body is just the fallback text,
-    # which duplicates the fast caption — nothing useful to follow up with.
-    if not body or body.strip() == (fallback or "").strip():
-        return
-
-    for phone in phones:
-        try:
-            whatsapp.send_text(phone, body)
-            print(f"   🧠 Summary follow-up sent to {phone} for {file_key}.")
-        except Exception as e:
-            # 24h window closed (silent/template user) or transient error — the
-            # body is cached for the 'Full Summary' button, so skip quietly.
-            print(f"   ℹ️  Summary follow-up skipped for {phone} ({file_key}): {e}")
-
-
-def _summary_worker():
-    print("🧠 Summary worker started — AI summaries run off the delivery hot path.")
-    while True:
-        job = _summary_queue.get()
-        try:
-            _process_summary_job(job)
-        except Exception as e:
-            print(f"❌ Summary worker error: {e}")
-        finally:
-            _summary_queue.task_done()
-
-
-def _enqueue_summary(file_path, file_key, fallback, phones):
-    if phones:
-        _summary_queue.put({
-            "file_path": file_path,
-            "file_key":  file_key,
-            "fallback":  fallback,
-            "phones":    list(phones),
-        })
+    return _caption_with_time(body, company, symbol, raw_time)
 
 
 def _try_send(phone, file_path, caption, file_key, filing_id=None,
@@ -390,10 +415,21 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
 
 
 def process_new_filings():
-    """Main logic: fetch → check subscribers → send PDFs."""
+    """
+    Fetch new filings → build (exchange time + AI summary) captions for the
+    whole batch CONCURRENTLY → deliver one WhatsApp message each.
+
+    Building captions in parallel means a burst of N filings takes about as long
+    as ONE summary, not N — so every PDF lands with its summary within ~1 minute
+    instead of the later ones queuing for minutes.
+    """
     filings = fetch_new_filings()
     filings = _dedup_by_filename(filings)
+    if not filings:
+        return
 
+    # ── Phase 1: resolve subscribers / drop undeliverable filings ────────
+    jobs = []
     for filing in filings:
         filing_id   = filing["filing_id"]
         symbol      = (filing.get("symbol") or "").upper().strip()
@@ -402,7 +438,6 @@ def process_new_filings():
         filing_type = filing.get("filing_type") or "New Filing"
 
         subscribers = get_subscribers_for_symbol_pg(symbol)
-
         if not subscribers:
             mark_notified_in_pg(filing_id)
             print(f"ℹ️  No subscribers for {symbol}, skipping.")
@@ -416,38 +451,57 @@ def process_new_filings():
             mark_notified_in_pg(filing_id)
             continue
 
-        print(f"📤 Sending {symbol} '{filing_type}' to {len(subscribers)} subscriber(s)...")
+        jobs.append({
+            "filing_id":   filing_id,
+            "symbol":      symbol,
+            "company":     company,
+            "file_path":   file_path,
+            "filing_type": filing_type,
+            "raw_time":    filing.get("created_at"),
+            "subscribers": subscribers,
+            "file_key":    os.path.basename(file_path).strip(),
+        })
 
-        file_key = os.path.basename(file_path).strip()
-        fallback = (
-            f"📄 *{company}* — {filing_type}\n"
-            f"🏦 Symbol: {symbol}"
+    if not jobs:
+        return
+
+    # ── Phase 2: build all captions concurrently (summary + exchange time) ─
+    futures = {
+        j["file_key"]: _caption_pool.submit(
+            _full_caption, j["company"], j["symbol"], j["filing_type"],
+            j["file_path"], j["raw_time"],
         )
-        # FAST caption only — no LLM on the hot path, so delivery stays ~instant.
-        caption  = _fast_caption(company, symbol, filing_type, filing.get('created_at'))
+        for j in jobs
+    }
 
+    # ── Phase 3: deliver ONE message per subscriber ──────────────────────
+    for j in jobs:
+        try:
+            caption = futures[j["file_key"]].result()
+        except Exception as e:
+            print(f"❌ Caption build failed for {j['file_key']}: {e}")
+            caption = _caption_with_time(
+                f"📄 *{j['company']}* — {j['filing_type']}\n🏦 Symbol: {j['symbol']}",
+                j["company"], j["symbol"], j["raw_time"],
+            )
+
+        print(f"📤 Sending {j['symbol']} '{j['filing_type']}' to {len(j['subscribers'])} subscriber(s)...")
         all_sent = True
-        delivered_phones = []
-        for phone in subscribers:
-            if bot_db.is_filing_sent(phone, file_key):
-                print(f"ℹ️  Already sent filing {file_key} to {phone}, skipping.")
+        for phone in j["subscribers"]:
+            if bot_db.is_filing_sent(phone, j["file_key"]):
+                print(f"ℹ️  Already sent filing {j['file_key']} to {phone}, skipping.")
                 continue
             # Only marks sent on confirmed success; queues on failure.
-            ok = _try_send(phone, file_path, caption, file_key,
-                           filing_id=filing_id, template_params=[company])
-            if ok:
-                delivered_phones.append(phone)
-            else:
+            ok = _try_send(phone, j["file_path"], caption, j["file_key"],
+                           filing_id=j["filing_id"], template_params=[j["company"]])
+            if not ok:
                 all_sent = False
-
-        # Rich AI summary is generated OFF the hot path and sent as a follow-up.
-        _enqueue_summary(file_path, file_key, fallback, delivered_phones)
 
         # Mark notified in PG only when EVERY subscriber got it. Otherwise the
         # filing stays is_notified=FALSE and is retried on the next poll for
         # anyone still missing it (already-sent users are skipped above).
         if all_sent:
-            mark_notified_in_pg(filing_id)
+            mark_notified_in_pg(j["filing_id"])
 
 
 # ── Automatic backfill for subscribers ───────────────────────
@@ -520,18 +574,15 @@ def deliver_backfill_for_subscribers():
                     if not os.path.exists(file_path):
                         continue
 
-                    fallback = (
-                        f"📄 *{name}* — New Filing\n"
-                        f"🏦 Symbol: {symbol}"
-                    )
-                    # FAST caption only; rich summary follows off the hot path.
-                    caption = _fast_caption(name, symbol, "New Filing", row['announcement_time'])
+                    # One message: exchange time + AI summary (cached after the
+                    # first build, so repeated backfill passes are cheap).
+                    caption = _full_caption(name, symbol, "New Filing",
+                                            file_path, row['announcement_time'])
 
                     # Only marks sent on confirmed success; queues on failure.
                     if _try_send(phone, file_path, caption, file_key,
                                  filing_id=row["id"], template_params=[name]):
                         print(f"✅ Auto-delivered {file_key} to {phone}")
-                        _enqueue_summary(file_path, file_key, fallback, [phone])
 
         pg_cur.close()
         pg_conn.close()
@@ -621,6 +672,8 @@ def start_watcher():
                 print(f"❌ Backfill task error: {e}")
             time.sleep(interval)
 
+    # Warm the AI summary engine (one-time LangChain import) so the first real
+    # filing isn't slowed by it.
+    threading.Thread(target=warm_up_summary_engine, daemon=True, name="summary-warmup").start()
     threading.Thread(target=live_loop, daemon=True, name="live-dispatch").start()
     threading.Thread(target=backfill_loop, daemon=True, name="subscriber-backfill").start()
-    threading.Thread(target=_summary_worker, daemon=True, name="summary-worker").start()
