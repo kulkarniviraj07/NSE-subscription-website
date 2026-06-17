@@ -57,7 +57,7 @@ async function processJobs() {
 
                     delay + 1000,
 
-                    10000
+                    4000
 
                 );
 

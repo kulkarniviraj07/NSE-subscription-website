@@ -92,7 +92,7 @@ services:
       # companies that currently have >=1 active subscription (via
       # symbolProvider -> subscribedCompanyRepository, refreshed every ~20s).
       # No static SYMBOLS list is used at runtime, so none is set here.
-      - INTERVAL=${POLL_INTERVAL_MS:-30000}
+      - INTERVAL=${POLL_INTERVAL_MS:-20000}
       - MAX_RECORDS=${MAX_RECORDS:-10}
       - REQUEST_LIMIT=${REQUEST_LIMIT:-5}
       - DOWNLOAD_WORKERS=${DOWNLOAD_WORKERS:-10}

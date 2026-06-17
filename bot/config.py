@@ -36,7 +36,7 @@ SCRAPER_BASE_PATH    = os.environ.get("SCRAPER_BASE_PATH", r"d:\prathmesh\shares
 FLASK_PORT        = int(os.environ.get("FLASK_PORT", 5000))
 FLASK_DEBUG       = os.environ.get("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
 ENABLE_DB_WATCHER = os.environ.get("ENABLE_DB_WATCHER", "True").lower() in ("true", "1", "yes")
-POLL_INTERVAL_SEC = int(os.environ.get("POLL_INTERVAL_SEC", 30))    # Live dispatch: check for brand-new filings every 30s (time-critical path)
+POLL_INTERVAL_SEC = int(os.environ.get("POLL_INTERVAL_SEC", 15))    # Live dispatch: check for brand-new filings every 15s (time-critical path)
 
 # How often the SLOW subscriber catch-up/backfill runs. This task is heavy
 # (every subscriber × every company × latest PDFs) so it runs on its OWN thread,

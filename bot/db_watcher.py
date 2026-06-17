@@ -10,6 +10,7 @@
 import os
 import sys
 import time
+import queue
 import threading
 import psycopg2
 import psycopg2.extras
@@ -215,24 +216,25 @@ def _format_exchange_time(raw) -> str:
     return f"{s} IST"
 
 
-def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
+def _fast_caption(company, symbol, filing_type, raw_time) -> str:
     """
-    Prepend the exchange filing time (and company) to a caption so every
-    delivered PDF clearly shows WHEN it was uploaded on NSE/BSE. Capped at
-    WhatsApp's 1024-char caption limit.
+    Instant, reliable caption sent WITH the PDF. No LLM call — so PDF delivery
+    is never blocked by (slow, variable) summary generation. The rich AI summary
+    is produced off the hot path and delivered as a follow-up message.
     """
-    header = (
+    return (
         f"🏢 *{company}* ({symbol})\n"
-        f"🕒 Filed on exchange: {_format_exchange_time(raw_time)}"
+        f"🕒 Filed on exchange: {_format_exchange_time(raw_time)}\n"
+        f"📄 {filing_type}"
     )
-    caption = f"{header}\n\n{body}".strip()
-    if len(caption) > 1024:
-        caption = caption[:1021].rstrip() + "..."
-    return caption
 
 
 def _build_caption(file_path, fallback_caption):
-    """Return cached AI summary if available; otherwise generate and cache it."""
+    """
+    Return the rich AI summary BODY (cached if already generated). NOTE: this
+    caches the time-less summary body only — the exchange time is added per-send
+    by the caption builder, never stored here, so it can't be doubled up.
+    """
     file_key = os.path.basename(file_path).strip()
     cached   = bot_db.get_filing_summary(file_key)
     if cached:
@@ -244,6 +246,61 @@ def _build_caption(file_path, fallback_caption):
         bot_db.save_filing_summary(file_key, trimmed)
         return trimmed
     return fallback_caption
+
+
+# ── Background AI-summary pipeline (OFF the delivery hot path) ────────────────
+# Generating an AI summary spawns a Python subprocess (LangChain + PDF parse +
+# LLM call) that can take many seconds and varies wildly per PDF. Doing it on
+# the send path made delivery time depend on summary time — and a burst of N
+# filings serialized into N summaries, so later PDFs arrived 5-10 min late.
+# Now the PDF goes out immediately with a fast caption, and this single worker
+# generates the rich summary afterwards and sends it as a follow-up message.
+
+_summary_queue: "queue.Queue" = queue.Queue()
+
+
+def _process_summary_job(job: dict):
+    file_path = job["file_path"]
+    file_key  = job["file_key"]
+    fallback  = job.get("fallback", "")
+    phones    = job.get("phones", [])
+
+    body = _build_caption(file_path, fallback)
+    # If no real AI summary was produced, the body is just the fallback text,
+    # which duplicates the fast caption — nothing useful to follow up with.
+    if not body or body.strip() == (fallback or "").strip():
+        return
+
+    for phone in phones:
+        try:
+            whatsapp.send_text(phone, body)
+            print(f"   🧠 Summary follow-up sent to {phone} for {file_key}.")
+        except Exception as e:
+            # 24h window closed (silent/template user) or transient error — the
+            # body is cached for the 'Full Summary' button, so skip quietly.
+            print(f"   ℹ️  Summary follow-up skipped for {phone} ({file_key}): {e}")
+
+
+def _summary_worker():
+    print("🧠 Summary worker started — AI summaries run off the delivery hot path.")
+    while True:
+        job = _summary_queue.get()
+        try:
+            _process_summary_job(job)
+        except Exception as e:
+            print(f"❌ Summary worker error: {e}")
+        finally:
+            _summary_queue.task_done()
+
+
+def _enqueue_summary(file_path, file_key, fallback, phones):
+    if phones:
+        _summary_queue.put({
+            "file_path": file_path,
+            "file_key":  file_key,
+            "fallback":  fallback,
+            "phones":    list(phones),
+        })
 
 
 def _try_send(phone, file_path, caption, file_key, filing_id=None,
@@ -361,16 +418,16 @@ def process_new_filings():
 
         print(f"📤 Sending {symbol} '{filing_type}' to {len(subscribers)} subscriber(s)...")
 
+        file_key = os.path.basename(file_path).strip()
         fallback = (
             f"📄 *{company}* — {filing_type}\n"
             f"🏦 Symbol: {symbol}"
         )
-        body     = _build_caption(file_path, fallback)
-        caption  = _caption_with_time(body, company, symbol, filing.get('created_at'))
-        file_key = os.path.basename(file_path).strip()
-        bot_db.save_filing_summary(file_key, caption)  # for the Full Summary button
+        # FAST caption only — no LLM on the hot path, so delivery stays ~instant.
+        caption  = _fast_caption(company, symbol, filing_type, filing.get('created_at'))
 
         all_sent = True
+        delivered_phones = []
         for phone in subscribers:
             if bot_db.is_filing_sent(phone, file_key):
                 print(f"ℹ️  Already sent filing {file_key} to {phone}, skipping.")
@@ -378,8 +435,13 @@ def process_new_filings():
             # Only marks sent on confirmed success; queues on failure.
             ok = _try_send(phone, file_path, caption, file_key,
                            filing_id=filing_id, template_params=[company])
-            if not ok:
+            if ok:
+                delivered_phones.append(phone)
+            else:
                 all_sent = False
+
+        # Rich AI summary is generated OFF the hot path and sent as a follow-up.
+        _enqueue_summary(file_path, file_key, fallback, delivered_phones)
 
         # Mark notified in PG only when EVERY subscriber got it. Otherwise the
         # filing stays is_notified=FALSE and is retried on the next poll for
@@ -462,14 +524,14 @@ def deliver_backfill_for_subscribers():
                         f"📄 *{name}* — New Filing\n"
                         f"🏦 Symbol: {symbol}"
                     )
-                    body    = _build_caption(file_path, fallback)
-                    caption = _caption_with_time(body, name, symbol, row['announcement_time'])
-                    bot_db.save_filing_summary(file_key, caption)  # for Full Summary button
+                    # FAST caption only; rich summary follows off the hot path.
+                    caption = _fast_caption(name, symbol, "New Filing", row['announcement_time'])
 
                     # Only marks sent on confirmed success; queues on failure.
                     if _try_send(phone, file_path, caption, file_key,
                                  filing_id=row["id"], template_params=[name]):
                         print(f"✅ Auto-delivered {file_key} to {phone}")
+                        _enqueue_summary(file_path, file_key, fallback, [phone])
 
         pg_cur.close()
         pg_conn.close()
@@ -561,3 +623,4 @@ def start_watcher():
 
     threading.Thread(target=live_loop, daemon=True, name="live-dispatch").start()
     threading.Thread(target=backfill_loop, daemon=True, name="subscriber-backfill").start()
+    threading.Thread(target=_summary_worker, daemon=True, name="summary-worker").start()

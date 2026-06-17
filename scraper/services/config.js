@@ -21,7 +21,7 @@ module.exports = {
         Number(
             process.env.INTERVAL
             ||
-            30000
+            20000
         ),
 
     // How many pages of NSE's GLOBAL announcements feed to pull each cycle.
