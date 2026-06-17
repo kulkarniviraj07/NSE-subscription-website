@@ -186,7 +186,7 @@ updated_at
 <
 NOW()
 -
-INTERVAL '5 minutes'
+INTERVAL '90 seconds'
 
 `
 

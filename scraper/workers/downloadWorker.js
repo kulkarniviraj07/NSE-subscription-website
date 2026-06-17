@@ -78,6 +78,8 @@ ${delay}ms`
 
                 try {
 
+                    const _t0 = Date.now();
+
                     await repo.updateStatus(
 
                         job.url,
@@ -112,8 +114,7 @@ ${delay}ms`
 
                     console.log(
 
-                        `Downloaded:
-${job.filename}`
+                        `Downloaded: ${job.filename} (${Date.now() - _t0}ms)`
 
                     );
 

@@ -148,7 +148,7 @@ OR
 
 last_retry_at
 <
-NOW() - INTERVAL '2 minutes'
+NOW() - INTERVAL '20 seconds'
 
 )
 

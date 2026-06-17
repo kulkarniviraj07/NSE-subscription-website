@@ -13,7 +13,10 @@ const repo =
         "../repositories/announcementRepository"
     );
 
-const MAX_RETRIES = 5;
+// Retry a not-yet-available PDF up to this many times. With the ~20s backoff
+// in failedJobRepository.claimRetryable, this covers ~2.5 min of exchange
+// file-propagation delay using fast retries, instead of the old 2-min waits.
+const MAX_RETRIES = 8;
 
 async function retryFailed() {
 
