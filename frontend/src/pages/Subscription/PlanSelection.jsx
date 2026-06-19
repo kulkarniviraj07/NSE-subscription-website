@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useApp from "../../hooks/useApp";
 import Button from "../../components/ui/Button";
+import { createOrder, verifyPayment } from "../../api/payment.api";
 
 /**
- * Simplified Plan Selection Page.
- * Displays exactly two pricing cards with minimal text and large action buttons.
- *
- * TESTING MODE: PREMIUM is activated instantly with no payment step.
+ * Plan Selection Page — two pricing cards.
+ * PREMIUM can be unlocked either by paying via Razorpay, or by entering a
+ * 100%-off coupon code (validated server-side).
  */
 export function PlanSelection() {
     const {
@@ -15,6 +15,7 @@ export function PlanSelection() {
         currentSubscription,
         handleActivateFree,
         handleActivatePremium,
+        loadAppData,
         loading
     } = useApp();
 
@@ -22,6 +23,7 @@ export function PlanSelection() {
     const [actionLoading, setActionLoading] = useState(null); // plan name being selected
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+    const [coupon, setCoupon] = useState("");
 
     // Fallback plans
     const activePlans = plans.length > 0 ? plans : [
@@ -49,21 +51,75 @@ export function PlanSelection() {
         }
     };
 
+    /** Redeem a 100%-off coupon → activate premium with no payment. */
+    const redeemCoupon = async () => {
+        await handleActivatePremium(coupon.trim());
+        setSuccessMessage("Coupon applied — Premium activated! Taking you to your watchlist...");
+        setTimeout(() => navigate("/companies"), 1200);
+    };
+
+    /** Pay for premium via Razorpay checkout. */
+    const payWithRazorpay = async (plan) => {
+        const orderData = await createOrder();
+        const order = orderData.order;
+
+        if (!window.Razorpay) {
+            throw new Error("Payment SDK not loaded. Please refresh and try again.");
+        }
+
+        await new Promise((resolve, reject) => {
+            const rzp = new window.Razorpay({
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                amount: order.amount,
+                currency: order.currency,
+                name: "EquityAlerts",
+                description: "Premium Subscription",
+                order_id: order.id,
+                handler: async (response) => {
+                    try {
+                        await verifyPayment({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                        });
+                        await loadAppData();
+                        setSuccessMessage("Payment successful — Premium activated! Taking you to your watchlist...");
+                        setTimeout(() => navigate("/companies"), 1200);
+                        resolve();
+                    } catch (err) {
+                        reject(new Error("Payment verification failed. If money was deducted, contact support."));
+                    }
+                },
+                modal: {
+                    ondismiss: () => reject(new Error("Payment cancelled.")),
+                },
+                prefill: {
+                    name: localStorage.getItem("name") || "",
+                    contact: localStorage.getItem("mobile") || "",
+                },
+                theme: { color: "#33D097" },
+            });
+            rzp.open();
+        });
+    };
+
     /**
-     * Activates the PREMIUM plan instantly (TESTING MODE — no payment).
+     * Premium: use the coupon if one is entered, otherwise pay via Razorpay.
      */
-    const handleSelectPremium = async () => {
+    const handleSelectPremium = async (plan) => {
         setActionLoading("PREMIUM");
         setErrorMessage("");
         setSuccessMessage("");
         try {
-            await handleActivatePremium();
-            setSuccessMessage("Premium activated! Taking you to your watchlist...");
-            setTimeout(() => {
-                navigate("/companies");
-            }, 1200);
+            if (coupon.trim()) {
+                await redeemCoupon();
+            } else {
+                await payWithRazorpay(plan);
+            }
         } catch (err) {
-            setErrorMessage(err.message || "Failed to activate Premium subscription.");
+            setErrorMessage(
+                err?.response?.data?.message || err.message || "Could not activate Premium."
+            );
         } finally {
             setActionLoading(null);
         }
@@ -146,8 +202,8 @@ export function PlanSelection() {
                                         </span>
                                     </div>
                                     {isPremiumPlan && (
-                                        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-[#33D097] font-mono">
-                                            Free during testing — no card needed
+                                        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wider text-[#6B7280] font-mono">
+                                            Pay securely via Razorpay, or use a coupon
                                         </p>
                                     )}
                                 </div>
@@ -190,7 +246,7 @@ export function PlanSelection() {
                             </div>
 
                             {/* Plan Action CTA */}
-                            <div className="mt-6 pt-3.5 border-t border-[#222A38]">
+                            <div className="mt-6 pt-3.5 border-t border-[#222A38] space-y-3">
                                 {isCurrent ? (
                                     <button
                                         disabled
@@ -202,18 +258,32 @@ export function PlanSelection() {
                                         Current Plan
                                     </button>
                                 ) : (
-                                    <Button
-                                        onClick={isPremiumPlan ? handleSelectPremium : handleSelectFree}
-                                        loading={itemLoading || loading}
-                                        disabled={actionLoading !== null}
-                                        variant="primary"
-                                        className={`w-full !h-12 text-xs uppercase tracking-wider !rounded-xl !font-bold ${isPremiumPlan
-                                            ? "!bg-[#33D097] hover:!bg-[#3BE6A7] !text-[#0C0E14] focus:!ring-[#33D097]/20"
-                                            : "bg-transparent border border-[#222A38] !text-[#E3E5EA] hover:bg-[#151921] focus:!ring-[#222A38]"
-                                            }`}
-                                    >
-                                        {isPremiumPlan ? "Activate Premium — Free" : "Select Starter Plan"}
-                                    </Button>
+                                    <>
+                                        {isPremiumPlan && (
+                                            <input
+                                                value={coupon}
+                                                onChange={(e) => setCoupon(e.target.value)}
+                                                placeholder="Have a coupon? (optional)"
+                                                className="w-full h-11 px-3 rounded-xl bg-[#0C0E14] border border-[#222A38] text-[#E3E5EA] placeholder-[#6B7280] text-xs font-mono uppercase tracking-wider focus:outline-none focus:border-[#33D097]/60"
+                                            />
+                                        )}
+                                        <Button
+                                            onClick={isPremiumPlan ? () => handleSelectPremium(plan) : handleSelectFree}
+                                            loading={itemLoading || loading}
+                                            disabled={actionLoading !== null}
+                                            variant="primary"
+                                            className={`w-full !h-12 text-xs uppercase tracking-wider !rounded-xl !font-bold ${isPremiumPlan
+                                                ? "!bg-[#33D097] hover:!bg-[#3BE6A7] !text-[#0C0E14] focus:!ring-[#33D097]/20"
+                                                : "bg-transparent border border-[#222A38] !text-[#E3E5EA] hover:bg-[#151921] focus:!ring-[#222A38]"
+                                                }`}
+                                        >
+                                            {isPremiumPlan
+                                                ? (coupon.trim()
+                                                    ? "Apply coupon & activate"
+                                                    : `Pay ₹${parseFloat(plan.price).toFixed(0)} & activate`)
+                                                : "Select Starter Plan"}
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </div>

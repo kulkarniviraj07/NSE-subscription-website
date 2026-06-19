@@ -242,14 +242,14 @@ export function AppProvider({ children }) {
     };
 
     /**
-     * Activate PREMIUM (TESTING MODE — no payment).
-     * Calls the backend, which deactivates any current plan and grants a
-     * real ACTIVE premium subscription, then re-hydrates app state.
+     * Activate PREMIUM via a 100%-off coupon (validated server-side).
+     * Deactivates any current plan, grants a real ACTIVE premium subscription,
+     * then re-hydrates app state.
      */
-    const handleActivatePremium = async () => {
+    const handleActivatePremium = async (coupon) => {
         try {
             setLoading(true);
-            const data = await activatePremiumPlan();
+            const data = await activatePremiumPlan(coupon);
             if (data?.subscription) {
                 setCurrentSubscription(data.subscription);
             }

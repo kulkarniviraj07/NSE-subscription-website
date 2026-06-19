@@ -111,8 +111,32 @@ async function activatePremiumPlan(
 
     try {
 
-        // TESTING MODE: no payment. Deactivate any current plan and grant
-        // PREMIUM directly so testers can unlock the full company limit.
+        // Premium without a Razorpay payment is allowed ONLY with a valid
+        // 100%-off coupon. (Paid purchases go through paymentController.)
+        const coupon =
+            String(req.body.coupon || "").trim().toUpperCase();
+
+        const validCoupon =
+            String(process.env.PREMIUM_COUPON_100 || "PUREFRAME100")
+                .trim()
+                .toUpperCase();
+
+        if (!coupon || coupon !== validCoupon) {
+
+            return res
+                .status(400)
+                .json({
+
+                    success: false,
+
+                    message:
+                        "Invalid or missing coupon code"
+
+                });
+
+        }
+
+        // Deactivate any current plan and grant PREMIUM.
         const subscription =
 
             await subscriptionService
@@ -126,7 +150,10 @@ async function activatePremiumPlan(
 
             success: true,
 
-            subscription
+            subscription,
+
+            message:
+                "Premium activated with coupon"
 
         });
 

@@ -19,10 +19,12 @@ export async function activateFreePlan() {
 }
 
 /**
- * Activate the PREMIUM plan directly (TESTING MODE — no payment).
+ * Activate the PREMIUM plan via a 100%-off coupon code (no payment).
+ * The coupon is validated server-side.
+ * @param {string} coupon
  * @returns {Promise<Object>} The newly activated subscription
  */
-export async function activatePremiumPlan() {
-    const response = await API.post("/subscriptions/premium");
+export async function activatePremiumPlan(coupon) {
+    const response = await API.post("/subscriptions/premium", { coupon });
     return response.data;
 }

@@ -172,6 +172,48 @@ def get_subscribers_for_symbol_pg(symbol: str) -> list:
         return None
 
 
+_company_name_cache = {}
+
+
+def get_company_display_name(symbol: str) -> str:
+    """
+    Resolve a human company NAME for a symbol (e.g. TATAPOWER -> Tata Power),
+    so messages never say "Unknown Company". Prefers the curated short name in
+    config.COMPANY_LIST, then the full name from the portal's companies table,
+    then the symbol itself. Cached — names don't change.
+    """
+    symbol = (symbol or "").upper().strip()
+    if not symbol:
+        return "Unknown Company"
+    if symbol in config.COMPANY_LIST:
+        return config.COMPANY_LIST[symbol]
+    if symbol in _company_name_cache:
+        return _company_name_cache[symbol]
+
+    name = symbol
+    try:
+        conn = psycopg2.connect(
+            host=config.DB_HOST, port=config.DB_PORT,
+            dbname="nse_subscription",
+            user=config.DB_USER, password=config.DB_PASSWORD,
+        )
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT company_name FROM companies WHERE UPPER(symbol)=UPPER(%s) LIMIT 1",
+            (symbol,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if row and row[0] and row[0].strip():
+            name = row[0].strip()
+    except Exception as e:
+        print(f"⚠️  Company-name lookup failed for {symbol}: {e}")
+
+    _company_name_cache[symbol] = name
+    return name
+
+
 # ── In-process AI summary engine ─────────────────────────────────────────────
 # output.py sits next to this file and its deps (LangChain, pdfplumber, ...) are
 # in the bot image. We import it ONCE and call process_pdf() in-process instead
@@ -219,7 +261,7 @@ def warm_up_summary_engine():
         pass
 
 
-def _run_summary(file_path: str):
+def _run_summary(file_path: str, company: str | None = None):
     out = _get_output_module()
     if out is None:
         return None
@@ -227,6 +269,7 @@ def _run_summary(file_path: str):
         file_path,
         provider=getattr(config, "SUMMARY_PROVIDER", "openai"),
         model=getattr(config, "SUMMARY_MODEL", "gpt-4o-mini"),
+        company_hint=company,
     )
     if not msg:
         return None
@@ -236,19 +279,20 @@ def _run_summary(file_path: str):
     return msg or None
 
 
-def generate_pdf_summary(file_path: str) -> str | None:
+def generate_pdf_summary(file_path: str, company: str | None = None) -> str | None:
     """
     Generate the AI summary for one PDF, in-process, with a HARD timeout so a
     slow/hung LLM call can never stall delivery. Returns None on any failure
     (caller then sends the basic caption). Safe to run from several threads at
-    once (the caption pool does exactly that).
+    once (the caption pool does exactly that). `company` is used as the display
+    name when the PDF text doesn't state it (avoids "Unknown Company").
     """
     print(f"🤖 Generating AI summary for {os.path.basename(file_path)}...")
     box = {}
 
     def _worker():
         try:
-            box["value"] = _run_summary(file_path)
+            box["value"] = _run_summary(file_path, company)
         except Exception as e:
             box["error"] = e
 
@@ -293,7 +337,7 @@ def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
     return caption
 
 
-def _build_caption(file_path, fallback_caption):
+def _build_caption(file_path, fallback_caption, company=None):
     """
     Return the rich AI summary BODY (cached if already generated). Caches the
     time-less body only — the exchange time is added per-send by
@@ -304,7 +348,7 @@ def _build_caption(file_path, fallback_caption):
     if cached:
         return cached
 
-    ai_summary = generate_pdf_summary(file_path)
+    ai_summary = generate_pdf_summary(file_path, company)
     if ai_summary:
         trimmed = ai_summary[:1017] + "..." if len(ai_summary) > 1020 else ai_summary
         bot_db.save_filing_summary(file_key, trimmed)
@@ -329,7 +373,7 @@ def _full_caption(company, symbol, filing_type, file_path, raw_time) -> str:
         f"📄 *{company}* — {filing_type}\n"
         f"🏦 Symbol: {symbol}"
     )
-    body = _build_caption(file_path, fallback)
+    body = _build_caption(file_path, fallback, company)
     return _caption_with_time(body, company, symbol, raw_time)
 
 
@@ -438,7 +482,7 @@ def process_new_filings():
     for filing in filings:
         filing_id   = filing["filing_id"]
         symbol      = (filing.get("symbol") or "").upper().strip()
-        company     = filing.get("company_name") or symbol
+        company     = get_company_display_name(symbol)
         file_path   = filing["file_path"]
         filing_type = filing.get("filing_type") or "New Filing"
 

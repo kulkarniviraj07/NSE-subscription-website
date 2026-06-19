@@ -460,6 +460,7 @@ def process_pdf(
     equisense_url: str = "https://equityalerts.in",
     short_url: str = "",
     save_json: bool = False,
+    company_hint: str | None = None,
 ) -> str:
     """
     End-to-end pipeline: PDF → text → LangChain extraction → formatted message.
@@ -492,14 +493,16 @@ def process_pdf(
     # Step 2: LLM financial extraction — ONLY for genuine results documents.
     _model_name = model or PROVIDER_DEFAULTS.get(provider, "default")
     summary     = None
-    company     = "Unknown Company"
+    company     = company_hint or "Unknown Company"
 
     if looks_like_financial_results(pdf_text):
         print(f"[2/3] Results document detected — extracting financials via "
               f"{provider} / {_model_name} ...", file=sys.stderr)
         try:
             summary = extract_financials(pdf_text, provider=provider, model=model)
-            company = summary.company_name or company
+            # Prefer the extracted name; fall back to the caller's known company.
+            company = summary.company_name or company_hint or "Unknown Company"
+            summary.company_name = company
             # Defence in depth: drop any metric whose numbers aren't in the PDF.
             verified = verify_metrics_against_text(summary, pdf_text)
             print(f"      Kept {verified} metric(s) verified against source text.", file=sys.stderr)
