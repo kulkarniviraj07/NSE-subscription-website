@@ -41,16 +41,21 @@ export function CompanySelection() {
     );
     const isTracked = (id) => selectedIds.has(id);
 
-    // Search the catalog; default to the whole list so a user can reach all symbols.
-    const filteredCompanies = useMemo(() => {
+    // Search across the FULL catalog (thousands of NSE+BSE companies) but only
+    // render a capped slice — searching finds anything, the DOM stays light.
+    const RENDER_CAP = 60;
+    const { visibleCompanies, totalMatches } = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
-        if (!query) return allCompanies;
-        return allCompanies.filter(
-            (c) =>
-                (c.company_name || "").toLowerCase().includes(query) ||
-                (c.symbol || "").toLowerCase().includes(query)
-        );
+        const matches = !query
+            ? allCompanies
+            : allCompanies.filter(
+                (c) =>
+                    (c.company_name || "").toLowerCase().includes(query) ||
+                    (c.symbol || "").toLowerCase().includes(query)
+            );
+        return { visibleCompanies: matches.slice(0, RENDER_CAP), totalMatches: matches.length };
     }, [allCompanies, searchQuery]);
+    const filteredCompanies = visibleCompanies;
 
     const flash = (msg) => {
         setErrorMessage(msg);
@@ -234,9 +239,18 @@ export function CompanySelection() {
                         {searchQuery ? "Search results" : "All companies"}
                     </h4>
                     <span className="text-[#646E7E] font-semibold uppercase">
-                        {filteredCompanies.length} listed
+                        {totalMatches > filteredCompanies.length
+                            ? `showing ${filteredCompanies.length} of ${totalMatches}`
+                            : `${totalMatches} listed`}
                     </span>
                 </div>
+                {totalMatches > filteredCompanies.length && (
+                    <p className="pl-1 text-[11px] text-[#646E7E]">
+                        {searchQuery
+                            ? "Keep typing to narrow it down."
+                            : "Search by name or symbol to find any NSE/BSE company."}
+                    </p>
+                )}
 
                 {loading ? (
                     <ListSkeleton count={6} />
