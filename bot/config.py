@@ -77,6 +77,32 @@ TEMPLATE_NAME             = "nse_bot"        # e.g. "nse_filing_alert" (must be 
 TEMPLATE_LANG             = "en"      # must match the template's language code ("en", "en_US", ...)
 TEMPLATE_BODY_PARAM_COUNT = 1         # number of {{n}} variables in the template BODY (0 if none)
 TEMPLATE_SUMMARY_BUTTON = True   # set True ONLY after the button is approved
+
+# ── Step 6: 24h-window pre-close re-engagement reminder ──────
+# A single INTERACTIVE message sent shortly BEFORE a user's 24-hour service
+# window closes. Goals:
+#   1. Nudge the user to tap the reply button — an INBOUND message reopens the
+#      window, so the next filings arrive as normal messages instead of stacking
+#      up as separate template alerts (the "many templates at a time" complaint).
+#   2. Surface the "manage companies" link (add/remove companies).
+#   3. Carry a short PureFrameLabs promo.
+# Works together with the one-template-per-closed-window cap in db_watcher so a
+# user can never receive a stack of templates.
+ENABLE_WINDOW_REMINDER       = os.environ.get("ENABLE_WINDOW_REMINDER", "True").lower() in ("true", "1", "yes")
+# Page where users add/remove the companies they track (portal /companies route).
+# Defaults off PORTAL_URL so it follows the deployed portal automatically.
+MANAGE_COMPANIES_URL         = os.environ.get(
+    "MANAGE_COMPANIES_URL",
+    os.environ.get("PORTAL_URL", "http://localhost:5000/portal").rstrip("/") + "/companies",
+)
+# Send the reminder this many hours BEFORE the 24h window closes (e.g. 1 -> at
+# the 23h mark since the user's last inbound message).
+WINDOW_REMINDER_BEFORE_HOURS = float(os.environ.get("WINDOW_REMINDER_BEFORE_HOURS", 1))
+# How often the reminder loop scans for users whose window is about to close.
+REMINDER_CHECK_INTERVAL_SEC  = int(os.environ.get("REMINDER_CHECK_INTERVAL_SEC", 300))   # 5 min
+# PureFrameLabs contact number shown in the promo footer.
+PUREFRAME_CONTACT            = os.environ.get("PUREFRAME_CONTACT", "8459625508")
+
 # ── Companies users can subscribe to ─────────────────────────
 # Key = NSE symbol, Value = display name shown in bot menu
 COMPANY_LIST = {

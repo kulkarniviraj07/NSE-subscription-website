@@ -280,6 +280,19 @@ def handle_message(phone: str, text: str):
     except Exception as e:
         print(f"⚠️  Could not flush pending filings for {phone}: {e}")
 
+    # ── "Keep alerts on" button tap (from the pre-close reminder) ─────
+    # This inbound tap has already reopened the 24h window and flushed any
+    # pending filings above. Just confirm, and remind them where to manage
+    # their companies. No template will be needed now — they're back in-window.
+    if text == "REENGAGE_KEEP":
+        manage_url = getattr(config, "MANAGE_COMPANIES_URL", PORTAL_URL)
+        whatsapp.send_text(phone,
+            "✅ Great — your NSE filing alerts will keep arriving smoothly.\n\n"
+            "➕ Add or remove companies anytime here:\n"
+            f"{manage_url}"
+        )
+        return
+
     # ── Greeting → dynamically send welcome message or 'all set' ──────
     if lower in ("hi", "hello", "hey", "start", "menu", "0"):
         if is_user_registered_pg(phone):
@@ -493,6 +506,14 @@ def webhook():
         msg   = value["messages"][0]
         phone = msg["from"]
         mtype = msg.get("type", "")
+
+        # Every inbound message opens a fresh 24h window — stamp it so the
+        # pre-close reminder loop knows when this user's window will close, and
+        # the one-template-per-window cap resets.
+        try:
+            db.record_inbound(phone)
+        except Exception as e:
+            print(f"⚠️  Could not record inbound for {phone}: {e}")
 
         if mtype == "text":
             text = msg["text"]["body"]

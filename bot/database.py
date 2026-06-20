@@ -65,6 +65,23 @@ def init_db():
             )
         """)
 
+        # Track the 24h window per user:
+        #   last_inbound_at    — when the user last messaged us (opens a window).
+        #   window_reminder_at — when we last sent the pre-close reminder for the
+        #                        CURRENT window (reset to NULL on every inbound),
+        #                        so the reminder fires at most once per window.
+        #   template_batch_at  — when we sent the SINGLE allowed template for the
+        #                        CURRENT closed window (reset to NULL on every
+        #                        inbound). Caps templates to one per closed window
+        #                        so users never get a stack of them.
+        user_cols = [r[1] for r in cur.execute("PRAGMA table_info(users)").fetchall()]
+        if "last_inbound_at" not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN last_inbound_at DATETIME")
+        if "window_reminder_at" not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN window_reminder_at DATETIME")
+        if "template_batch_at" not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN template_batch_at DATETIME")
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscriptions (
                 phone  TEXT,
@@ -154,6 +171,109 @@ def set_state(phone: str, state: str):
             INSERT INTO users (phone, state) VALUES (?, ?)
             ON CONFLICT(phone) DO UPDATE SET state=excluded.state
         """, (phone, state))
+        conn.commit()
+        conn.close()
+
+
+# ── 24h-window tracking (pre-close reminder + template cap) ───
+
+def record_inbound(phone: str):
+    """
+    Record that `phone` just sent us a message. Each inbound message opens a
+    fresh 24-hour window, so we stamp last_inbound_at and clear
+    window_reminder_at + template_batch_at — letting the pre-close reminder fire
+    again, and resetting the one-template-per-window cap, for this new window.
+    """
+    with _lock:
+        conn = get_conn()
+        conn.execute("""
+            INSERT INTO users (phone, last_inbound_at, window_reminder_at, template_batch_at)
+            VALUES (?, CURRENT_TIMESTAMP, NULL, NULL)
+            ON CONFLICT(phone) DO UPDATE SET
+                last_inbound_at    = CURRENT_TIMESTAMP,
+                window_reminder_at = NULL,
+                template_batch_at  = NULL
+        """, (phone,))
+        conn.commit()
+        conn.close()
+
+
+def get_users_due_for_window_reminder(min_age_hours: float,
+                                      max_age_hours: float) -> list:
+    """
+    Phones whose 24-hour window is about to close: their last inbound message
+    is between `min_age_hours` and `max_age_hours` old, and they have not yet
+    been reminded for the current window. (UTC throughout.)
+    """
+    with _lock:
+        conn = get_conn()
+        rows = conn.execute("""
+            SELECT phone FROM users
+            WHERE last_inbound_at IS NOT NULL
+              AND window_reminder_at IS NULL
+              AND last_inbound_at <= datetime('now', ?)
+              AND last_inbound_at >  datetime('now', ?)
+        """, (f"-{min_age_hours} hours", f"-{max_age_hours} hours")).fetchall()
+        conn.close()
+        return [r["phone"] for r in rows]
+
+
+def mark_window_reminder_sent(phone: str):
+    """Stamp that the pre-close reminder was sent for this user's current window."""
+    with _lock:
+        conn = get_conn()
+        conn.execute(
+            "UPDATE users SET window_reminder_at = CURRENT_TIMESTAMP WHERE phone=?",
+            (phone,)
+        )
+        conn.commit()
+        conn.close()
+
+
+def window_open(phone: str) -> bool:
+    """
+    Best-effort check of whether the user's 24-hour window is still open, based
+    on our own record of their last inbound message. True only if they messaged
+    us within the last 24 hours. (Meta is still the source of truth on the actual
+    send — this just lets us decide up front whether a filing is template-bound.)
+    """
+    with _lock:
+        conn = get_conn()
+        row = conn.execute("""
+            SELECT 1 FROM users
+            WHERE phone=? AND last_inbound_at IS NOT NULL
+              AND last_inbound_at > datetime('now', '-24 hours')
+        """, (phone,)).fetchone()
+        conn.close()
+        return row is not None
+
+
+def can_send_batch_template(phone: str) -> bool:
+    """
+    True if we have NOT yet sent the one allowed template for this user's current
+    closed window. Used to cap templates to a single message per closed window so
+    a burst of filings never arrives as a stack of templates — the rest are
+    queued in pending_filings and flushed (free-form) when the user re-engages.
+    """
+    with _lock:
+        conn = get_conn()
+        row = conn.execute(
+            "SELECT 1 FROM users WHERE phone=? AND template_batch_at IS NOT NULL",
+            (phone,)
+        ).fetchone()
+        conn.close()
+        return row is None
+
+
+def mark_batch_template_sent(phone: str):
+    """Stamp that this user has received their single template for the current closed window."""
+    with _lock:
+        conn = get_conn()
+        conn.execute("""
+            INSERT INTO users (phone, template_batch_at)
+            VALUES (?, CURRENT_TIMESTAMP)
+            ON CONFLICT(phone) DO UPDATE SET template_batch_at = CURRENT_TIMESTAMP
+        """, (phone,))
         conn.commit()
         conn.close()
 
