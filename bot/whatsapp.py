@@ -59,11 +59,54 @@ def send_text(to: str, message: str):
     _post("/messages", payload)
 
 
+# ── Send interactive reply buttons ────────────────────────────
+
+def send_interactive_buttons(to: str, body_text: str, buttons,
+                             header_text: str = None,
+                             footer_text: str = None) -> str:
+    """
+    Send an interactive message with up to 3 quick-reply buttons.
+
+    Unlike a URL link (which opens a browser and sends NOTHING back), tapping a
+    reply button delivers an INBOUND 'button_reply' message to our webhook —
+    which reopens the 24-hour window. That's what lets the pre-close reminder
+    actually keep a user's window alive so future filings arrive free-form
+    instead of as stacked templates.
+
+    `buttons` is a list of dicts: [{"id": "...", "title": "..."}] (title ≤ 20 chars).
+    Only valid INSIDE the 24-hour window (raises WhatsAppError 131047 otherwise).
+    Returns the wamid.
+    """
+    reply_buttons = [
+        {"type": "reply", "reply": {"id": b["id"], "title": b["title"][:20]}}
+        for b in (buttons or [])[:3]
+    ]
+    interactive = {
+        "type": "button",
+        "body": {"text": body_text[:1024]},
+        "action": {"buttons": reply_buttons},
+    }
+    if header_text:
+        interactive["header"] = {"type": "text", "text": header_text[:60]}
+    if footer_text:
+        interactive["footer"] = {"text": footer_text[:60]}
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": interactive,
+    }
+    resp = _post("/messages", payload)
+    return (resp.json().get("messages") or [{}])[0].get("id", "")
+
+
 # ── Send PDF document ─────────────────────────────────────────
 
 def send_pdf(to: str, file_path: str, caption: str = "",
              template_params=None, force_template: bool = False,
-             reply_payload: str = None) -> tuple:
+             reply_payload: str = None,
+             allow_template_fallback: bool = True) -> tuple:
     """
     Upload a PDF to Meta and deliver it.
 
@@ -111,7 +154,7 @@ def send_pdf(to: str, file_path: str, caption: str = "",
     except WhatsAppError as e:
         # Step 2b: window closed → fall back to an approved template.
         template_name = getattr(config, "TEMPLATE_NAME", "") or ""
-        if e.is_reengagement and template_name:
+        if e.is_reengagement and template_name and allow_template_fallback:
             _safe_print(
                 f"[INFO] 24h window closed for {to} — retrying via "
                 f"template '{template_name}'..."

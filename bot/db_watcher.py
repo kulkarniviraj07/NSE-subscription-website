@@ -392,18 +392,55 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
     directly. Pass this when retrying after a 131047 callback — we already
     KNOW the window is closed, so re-trying free-form would just fail again
     asynchronously and loop forever.
+
+    TEMPLATE-STACKING CAP: a filing whose recipient is OUTSIDE the 24h window
+    can only go as a template. We allow exactly ONE template per closed window
+    and queue every further filing in pending_filings, so users never receive a
+    stack of templates. Queued filings flush (free-form) the instant the user
+    re-engages (taps the reminder button or sends any message).
     """
+    # Attach the "Full Summary" quick-reply button payload so a tap comes
+    # back as an inbound message (reopening the 24h window) — but ONLY if
+    # the approved template actually has that button (config flag).
+    reply_payload = None
+    if getattr(config, "TEMPLATE_SUMMARY_BUTTON", False):
+        reply_payload = f"SUM::{file_key}"
+
+    template_configured = bool(getattr(config, "TEMPLATE_NAME", "") or "")
+    window_is_open      = bot_db.window_open(phone)
+
+    # If this filing is template-bound (window closed, or an explicit template
+    # retry), enforce the one-template-per-window cap up front.
+    if force_template or not window_is_open:
+        if not template_configured:
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error="window closed, no template configured"
+            )
+            print(f"⏳ Window closed for {phone} & no template — queued {file_key}.")
+            return False
+        if not bot_db.can_send_batch_template(phone):
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error="template cap: suppressed to avoid stacking"
+            )
+            print(f"🔕 Template already sent to {phone} this window — queued "
+                  f"{file_key} instead of stacking another template.")
+            return False
+
     try:
-        # Attach the "Full Summary" quick-reply button payload so a tap comes
-        # back as an inbound message (reopening the 24h window) — but ONLY if
-        # the approved template actually has that button (config flag).
-        reply_payload = None
-        if getattr(config, "TEMPLATE_SUMMARY_BUTTON", False):
-            reply_payload = f"SUM::{file_key}"
+        # Window open  → free-form (no auto-template fallback: if our window
+        #                read is stale, the 131047 below routes through the cap).
+        # Window closed/forced → go straight to the single allowed template.
+        send_force = bool(force_template or not window_is_open)
         channel, wamid = whatsapp.send_pdf(phone, file_path, caption=caption,
                                            template_params=template_params,
-                                           force_template=force_template,
+                                           force_template=send_force,
+                                           allow_template_fallback=False,
                                            reply_payload=reply_payload)
+        if channel == "template":
+            # Spend this window's single template allowance.
+            bot_db.mark_batch_template_sent(phone)
         bot_db.mark_filing_sent(phone, file_key)
         bot_db.remove_pending_filing(phone, file_key)  # clear any prior retry entry
         # Track the wamid so status callbacks can undo this if Meta later
@@ -442,10 +479,39 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
         return True
     except WhatsAppError as e:
         if e.is_reengagement:
-            print(f"⏳ 24h window closed for {phone} — queued {file_key} for retry.")
+            # Our window read was stale (we thought it was open) — the window is
+            # actually closed. Route through the cap: send the ONE allowed
+            # template now, otherwise queue so we never stack templates.
+            if template_configured and bot_db.can_send_batch_template(phone):
+                print(f"⏳ Window actually closed for {phone} — sending the "
+                      f"single allowed template for {file_key}.")
+                try:
+                    channel, wamid = whatsapp.send_pdf(
+                        phone, file_path, caption=caption,
+                        template_params=template_params,
+                        force_template=True,
+                        reply_payload=reply_payload,
+                    )
+                    bot_db.mark_batch_template_sent(phone)
+                    bot_db.mark_filing_sent(phone, file_key)
+                    bot_db.remove_pending_filing(phone, file_key)
+                    if wamid:
+                        bot_db.store_wamid(wamid, phone, file_key, file_path,
+                                           caption, filing_id=filing_id,
+                                           channel=channel)
+                    return True
+                except Exception as e2:
+                    print(f"❌ Template send failed for {phone} ({file_key}): {e2}")
+                    bot_db.queue_pending_filing(
+                        phone, file_key, file_path, caption,
+                        filing_id=filing_id, error=str(e2)
+                    )
+                    return False
+            print(f"⏳ Window closed for {phone} — queued {file_key} "
+                  f"(template cap / no template).")
             bot_db.queue_pending_filing(
                 phone, file_key, file_path, caption,
-                filing_id=filing_id, error="131047 re-engagement"
+                filing_id=filing_id, error="131047 re-engagement (capped/queued)"
             )
         else:
             print(f"❌ WhatsApp send failed for {phone} ({file_key}): {e}")
@@ -686,6 +752,70 @@ def flush_pending_filings(phone: str) -> int:
     return delivered
 
 
+# ── 24h-window pre-close re-engagement reminder ──────────────
+
+# Button id sent back when a user taps the re-engage button. Bot.py handles it.
+REENGAGE_BUTTON_ID = "REENGAGE_KEEP"
+
+
+def _build_window_reminder_body() -> str:
+    """Body text for the interactive reminder: manage-companies link + nudge."""
+    url = getattr(config, "MANAGE_COMPANIES_URL", "")
+    return (
+        "You can add or remove companies anytime here 👇\n"
+        f"{url}\n\n"
+        "Tap *Keep alerts on* below so your NSE filings keep arriving smoothly "
+        "(without piling up). 📈"
+    )
+
+
+def send_window_closing_reminders():
+    """
+    Send a one-time INTERACTIVE reminder to every user whose 24-hour window is
+    about to close (last inbound between (24 - WINDOW_REMINDER_BEFORE_HOURS) and
+    24 hours ago, not yet reminded for this window).
+
+    It carries a reply BUTTON, not just a link: tapping a reply button sends an
+    inbound message that REOPENS the 24h window (a URL tap does not), so the
+    user's next filings arrive as normal messages instead of stacked templates.
+    Header/body show the manage-companies link; the footer carries the
+    PureFrameLabs promo.
+    """
+    if not getattr(config, "ENABLE_WINDOW_REMINDER", False):
+        return
+
+    before  = float(getattr(config, "WINDOW_REMINDER_BEFORE_HOURS", 1))
+    min_age = max(0.0, 24.0 - before)   # e.g. 23h old
+    due     = bot_db.get_users_due_for_window_reminder(min_age, 24.0)
+    if not due:
+        return
+
+    body    = _build_window_reminder_body()
+    contact = getattr(config, "PUREFRAME_CONTACT", "")
+    buttons = [{"id": REENGAGE_BUTTON_ID, "title": "Keep alerts on ✅"}]
+    print(f"🔔 {len(due)} user(s) due for a window-closing reminder.")
+    for phone in due:
+        try:
+            whatsapp.send_interactive_buttons(
+                phone, body, buttons,
+                header_text="🔔 Manage your NSE alerts",
+                footer_text=f"📢 PureFrameLabs • {contact}",
+            )
+            bot_db.mark_window_reminder_sent(phone)
+            print(f"   ✅ Reminder sent to {phone}")
+        except WhatsAppError as e:
+            # If the window has already closed (131047), an interactive message
+            # can't be delivered. Mark it sent anyway so we don't retry every
+            # cycle — it resets automatically when the user next messages us.
+            if e.is_reengagement:
+                bot_db.mark_window_reminder_sent(phone)
+                print(f"   ⏳ Window already closed for {phone} — reminder skipped.")
+            else:
+                print(f"   ❌ Reminder send failed for {phone}: {e}")
+        except Exception as e:
+            print(f"   ❌ Reminder error for {phone}: {e}")
+
+
 # Backwards-compatible alias
 catch_up_new_subscribers = deliver_backfill_for_subscribers
 
@@ -730,8 +860,20 @@ def start_watcher():
                 print(f"❌ Backfill task error: {e}")
             time.sleep(interval)
 
+    def reminder_loop():
+        interval = int(getattr(config, "REMINDER_CHECK_INTERVAL_SEC", 300))
+        print(f"🔔 Window-close reminder loop started — checking every {interval}s")
+        while True:
+            try:
+                send_window_closing_reminders()
+            except Exception as e:
+                print(f"❌ Reminder loop error: {e}")
+            time.sleep(interval)
+
     # Warm the AI summary engine (one-time LangChain import) so the first real
     # filing isn't slowed by it.
     threading.Thread(target=warm_up_summary_engine, daemon=True, name="summary-warmup").start()
     threading.Thread(target=live_loop, daemon=True, name="live-dispatch").start()
     threading.Thread(target=backfill_loop, daemon=True, name="subscriber-backfill").start()
+    if getattr(config, "ENABLE_WINDOW_REMINDER", False):
+        threading.Thread(target=reminder_loop, daemon=True, name="window-reminder").start()
