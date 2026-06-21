@@ -93,7 +93,7 @@ ENABLE_WINDOW_REMINDER       = os.environ.get("ENABLE_WINDOW_REMINDER", "True").
 # Defaults off PORTAL_URL so it follows the deployed portal automatically.
 MANAGE_COMPANIES_URL         = os.environ.get(
     "MANAGE_COMPANIES_URL",
-    os.environ.get("PORTAL_URL", "http://localhost:5000/portal").rstrip("/") + "/companies",
+    os.environ.get("PORTAL_URL", "https://equityalerts.in/portal").rstrip("/") + "/companies",
 )
 # Send the reminder this many hours BEFORE the 24h window closes (e.g. 1 -> at
 # the 23h mark since the user's last inbound message).

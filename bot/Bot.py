@@ -31,7 +31,14 @@ def add_ngrok_header(response):
 
 # ── Constants ─────────────────────────────────────────────────
 
-PORTAL_URL = os.environ.get("PORTAL_URL", "http://localhost:5000/portal")
+PORTAL_URL = os.environ.get("PORTAL_URL", "https://equityalerts.in/portal")
+
+# PureFrameLabs promo appended to greeting/help replies.
+PROMO_FOOTER = (
+    "━━━━━━━━━━━━━━\n"
+    "*📢 We are PureFrameLabs* — we build similar products & custom tools.\n"
+    "For any query or product, contact us: *8459625508*"
+)
 
 WELCOME_MSG = (
     "👋 Welcome to *NSE Filing Alerts Bot*!\n\n"
@@ -40,7 +47,8 @@ WELCOME_MSG = (
     "🔗 *To get started, tap the link below to register and choose your companies:*\n"
     f"{PORTAL_URL}\n\n"
     "_(Opens inside WhatsApp — complete signup & subscription there)_\n\n"
-    "Once registered, PDFs will be sent to you automatically. ✅"
+    "Once registered, PDFs will be sent to you automatically. ✅\n\n"
+    f"{PROMO_FOOTER}"
 )
 
 HELP_MSG = (
@@ -54,13 +62,15 @@ HELP_MSG = (
     "  • *hi* / *start* — show welcome & portal link\n"
     "  • *pdfs* — manually fetch any unsent filings now\n"
     "  • *help* — show this message\n\n"
-    "Type *hi* to see the portal link again."
+    "Type *hi* to see the portal link again.\n\n"
+    f"{PROMO_FOOTER}"
 )
 
 ALREADY_REGISTERED_MSG = (
     "✅ You're all set!\n\n"
     "New NSE filings for your subscribed companies will be delivered here automatically.\n\n"
-    "Type *pdfs* if you'd like your latest filings right now, or *help* for more info."
+    "Type *pdfs* if you'd like your latest filings right now, or *help* for more info.\n\n"
+    f"{PROMO_FOOTER}"
 )
 
 
