@@ -290,9 +290,17 @@ def _format_change(change_str: str) -> str:
         return change_str
 
 
+# PureFrameLabs promo appended to every PDF filing alert.
+PUREFRAME_AD = (
+    "━━━━━━━━━━━━━━\n"
+    "*📢 We are PureFrameLabs* — we build similar products & custom tools.\n"
+    "For any query or product, contact us: *8459625508*"
+)
+
+
 def format_whatsapp_message(
     summary: FinancialSummary,
-    equisense_url: str = "https://equityalerts.in",
+    equisense_url: str = "https://equityalerts.in/portal",
     short_url: str = "",
 ) -> str:
     """Convert a FinancialSummary into the PureFrame Result Bits WhatsApp format."""
@@ -324,6 +332,9 @@ def format_whatsapp_message(
         f"You are receiving this stock update per your request on {equisense_url}"
     )
 
+    lines.append("")
+    lines.append(PUREFRAME_AD)
+
     return "\n".join(lines)
 
 
@@ -332,7 +343,7 @@ def summarize_content(
     company_name: str,
     provider: str = "openai",
     model: str | None = None,
-    equisense_url: str = "https://equityalerts.in",
+    equisense_url: str = "https://equityalerts.in/portal",
 ) -> str:
     """
     Plain-text content summary for PDFs with no financial tables.
@@ -382,6 +393,8 @@ def summarize_content(
         "🤖 Key Insights:",
         f" {equisense_url}",
         f"You are receiving this stock update per your request on {equisense_url}",
+        "",
+        PUREFRAME_AD,
     ]
     return "\n".join(lines)
 
@@ -457,7 +470,7 @@ def process_pdf(
     pdf_source: str,
     provider: str = "google",
     model: str | None = None,
-    equisense_url: str = "https://equityalerts.in",
+    equisense_url: str = "https://equityalerts.in/portal",
     short_url: str = "",
     save_json: bool = False,
     company_hint: str | None = None,
@@ -548,7 +561,7 @@ def main():
     )
     ap.add_argument("--model",        default=None, help="Override model name")
     ap.add_argument("--short-url",    default="",   help="Short URL for AI insights section")
-    ap.add_argument("--equisense-url",default="https://equityalerts.in")
+    ap.add_argument("--equisense-url",default="https://equityalerts.in/portal")
     ap.add_argument("--save-json",    action="store_true", help="Save intermediate JSON")
     ap.add_argument("--output",       default=None, help="Save message to file")
     ap.add_argument("--raw",          action="store_true", help="Print raw WhatsApp message without borders")
