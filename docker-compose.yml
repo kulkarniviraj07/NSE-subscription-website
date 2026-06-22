@@ -114,8 +114,10 @@ services:
     image: adminer
     container_name: nse_adminer
     restart: always
-    ports:
-      - "8090:8080"
+    environment:
+      - SERVICE_FQDN_ADMINER_8080
+    expose:
+      - "8080"
     depends_on:
       db:
         condition: service_healthy
