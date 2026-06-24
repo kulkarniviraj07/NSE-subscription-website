@@ -122,7 +122,23 @@ services:
       db:
         condition: service_healthy
 
+  metabase:
+    image: metabase/metabase
+    container_name: nse_metabase
+    restart: always
+    environment:
+      - SERVICE_FQDN_METABASE_3000
+      - MB_DB_FILE=/metabase-data/metabase.db
+    expose:
+      - "3000"
+    volumes:
+      - metabase_data:/metabase-data
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   shared_storage:
   bot_sqlite_data:
+  metabase_data:
