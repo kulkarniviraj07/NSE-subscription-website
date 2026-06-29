@@ -105,11 +105,9 @@ export function Register() {
             {/* Ambient Stock Market terminal graphics */}
             <MarketChartBackground />
 
-            {/* Layout Wrapper: Center box on mobile, Grid on desktop */}
-            <div className="w-full max-w-md md:max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 items-stretch">
-                
-                {/* Left Card: Secure Onboarding Form */}
-                <div className="w-full bg-[#151921]/60 backdrop-blur-md rounded-3xl border border-[#222A38] p-8 sm:p-10 shadow-2xl flex flex-col justify-center">
+        
+            {/* Left Card: Secure Onboarding Form */}
+                <div className="w-full max-w-lg mx-auto bg-[#151921]/60 backdrop-blur-md rounded-3xl border border-[#222A38] p-8 sm:p-10 shadow-2xl flex flex-col justify-center">
                     {/* Header */}
                     <div className="flex flex-col items-center text-center">
                         <div className="w-16 h-16 bg-[#151921] border border-[#222A38] rounded-2xl flex items-center justify-center mb-6 shadow-lg glow-cyan">
@@ -252,55 +250,8 @@ export function Register() {
                         </div>
                     </div>
                 </div>
-
-                {/* Right Card: Mobile WhatsApp Notification Live Simulator (Desktop Only) */}
-                <div className="hidden md:flex flex-col justify-between p-8 bg-[#151921]/60 backdrop-blur-md rounded-3xl border border-[#222A38] shadow-2xl font-mono text-xs text-[#9298A0] relative overflow-hidden">
-                    <div className="absolute inset-0 bg-market-grid opacity-10 pointer-events-none" />
-                    
-                    <div className="space-y-6 relative z-10 text-left">
-                        <div className="flex items-center justify-between border-b border-[#222A38] pb-3">
-                            <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">WhatsApp Alert Feed</span>
-                            <span className="text-[9px] bg-[#33D097]/10 text-brand-cyan border border-[#33D097]/20 px-2 py-0.5 rounded font-bold">SIMULATOR</span>
-                        </div>
-
-                        <div className="space-y-4">
-                            <span className="text-[10px] text-brand-textMuted font-bold uppercase tracking-wider block">Mock Dispatch Logs</span>
-                            
-                            {/* WhatsApp alert cards */}
-                            <div className="space-y-3">
-                                <div className="p-3 bg-[#0C0E14] border border-[#222A38] rounded-2xl relative shadow-md">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
-                                        <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts alerts</span>
-                                        <span className="text-[9px] text-[#6B7280] ml-auto">Just now</span>
-                                    </div>
-                                    <p className="text-[10px] text-brand-light leading-relaxed">
-                                        🚨 <strong>RELIANCE (NSE)</strong>: Board meeting scheduled on June 15, 2026 to consider dividend payments and financial statements. <span className="text-brand-cyan hover:underline cursor-pointer font-bold block mt-1">Read PDF Document →</span>
-                                    </p>
-                                </div>
-
-                                <div className="p-3 bg-[#0C0E14] border border-[#222A38] rounded-2xl relative shadow-md opacity-80">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
-                                        <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts alerts</span>
-                                        <span className="text-[9px] text-[#6B7280] ml-auto">5m ago</span>
-                                    </div>
-                                    <p className="text-[10px] text-brand-light leading-relaxed">
-                                        📢 <strong>TCS (NSE)</strong>: Submission of audited financial results for Q4 ended March 31, 2026. Net profit rose 12.4% YoY. <span className="text-brand-cyan hover:underline cursor-pointer font-bold block mt-1">Read PDF Document →</span>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="pt-6 border-t border-[#222A38] mt-6 text-[10px] text-brand-textMuted text-left relative z-10 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-[#33D097] rounded-full animate-ping" />
-                        <span>Instant alerts sent straight to your device.</span>
-                    </div>
-                </div>
-
-            </div>
         </div>
+        
     );
 }
 

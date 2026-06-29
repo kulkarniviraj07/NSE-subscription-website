@@ -29,6 +29,12 @@ import Disclaimer from "../pages/Legal/Disclamer";
 // Components
 import Loader from "../components/common/Loader";
 
+//Main Pages
+import Pricing from "../components/mainpages/Pricing";
+import Features from "../components/mainpages/Features";
+import Coverage from "../components/mainpages/Coverage";
+import FAQ from "../components/mainpages/FAQ";
+import HowItWorks from "../components/mainpages/HowItWorks";
 /**
  * Protected Route
  */
@@ -112,12 +118,9 @@ function HomeRoute() {
 
 }
 
-export function AppRoutes() {
+function AppRoutes() {
 
     return (
-
-        <BrowserRouter basename="/portal">
-
             <Routes>
 
                 {/* HOME */}
@@ -190,14 +193,19 @@ export function AppRoutes() {
                     element={<Disclaimer />}
                 />
 
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/features" element={<Features />} />
+                <Route path="/coverage" element={<Coverage />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
+
                 {/* 404 */}
                 <Route
                     path="*"
                     element={<NotFound />}
                 />
-
             </Routes>
-        </BrowserRouter>
+        
 
     );
 

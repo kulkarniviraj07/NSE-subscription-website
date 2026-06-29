@@ -94,15 +94,12 @@ export function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0C0E14] flex items-center justify-center px-4 py-8 relative overflow-hidden font-sans">
+        <div className="min-h-screen bg-[#0C0E14] flex items-center justify-center px-6 py-10 relative overflow-hidden font-sans justify-center">
             {/* Ambient Stock Market terminal graphics */}
             <MarketChartBackground />
 
-            {/* Layout Wrapper: Center box on mobile, Grid on desktop */}
-            <div className="w-full max-w-md md:max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 items-stretch">
-                
-                {/* Left Card: Secure Login Form */}
-                <div className="w-full bg-[#151921]/60 backdrop-blur-md rounded-3xl border border-[#222A38] p-8 sm:p-10 shadow-2xl flex flex-col justify-center">
+            {/* Left Card: Secure Login Form */}
+                <div className="w-full max-w-lg mx-auto bg-[#151921]/60 backdrop-blur-md rounded-3xl border border-[#222A38] p-6 sm:p-8 shadow-2xl flex flex-col justify-center">
                     {/* Brand Logo Header */}
                     <div className="flex flex-col items-center text-center">
                         <div className="w-16 h-16 bg-[#151921] border border-[#222A38] rounded-2xl flex items-center justify-center mb-6 shadow-lg glow-cyan">
@@ -221,61 +218,7 @@ export function Login() {
                         </div>
                     </div>
                 </div>
-
-                {/* Right Card: Mobile WhatsApp Notification Live Simulator (Desktop Only) */}
-                <div className="hidden md:flex flex-col justify-between p-8 bg-[#151921]/60 backdrop-blur-md rounded-3xl border border-[#222A38] shadow-2xl font-mono text-xs text-[#9298A0] relative overflow-hidden">
-                    <div className="absolute inset-0 bg-market-grid opacity-10 pointer-events-none" />
-                    
-                    <div className="space-y-6 relative z-10 text-left">
-                        <div className="flex items-center justify-between border-b border-[#222A38] pb-3">
-                            <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">WhatsApp Alert Feed</span>
-                            <span className="text-[9px] bg-[#33D097]/10 text-brand-cyan border border-[#33D097]/20 px-2 py-0.5 rounded font-bold">SIMULATOR</span>
-                        </div>
-
-                        <div className="space-y-4">
-                            <span className="text-[10px] text-brand-textMuted font-bold uppercase tracking-wider block">Mock Dispatch Logs</span>
-                            
-                            {/* WhatsApp alert cards */}
-                            <div className="space-y-3">
-                                {step === "OTP" && (
-                                    <div className="p-3 bg-[#0C0E14] border border-brand-cyan/40 rounded-2xl relative shadow-md animate-pulse">
-                                        <div className="flex items-center gap-2 mb-1.5">
-                                            <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
-                                            <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts</span>
-                                            <span className="text-[9px] text-[#6B7280] ml-auto">Just now</span>
-                                        </div>
-                                        <div className="text-[10px] text-brand-light leading-relaxed">
-                                            🔐 <strong>EquityAlerts OTP Verification</strong><br/><br/>
-                                            Your one-time password is:<br/>
-                                            <span className="block text-brand-cyan text-sm font-bold font-mono tracking-widest mt-1 bg-[#151921] p-2 rounded text-center border border-[#222A38]">{otp || "● ● ● ● ● ●"}</span><br/>
-                                            This OTP is valid for 5 minutes. Do not share it with anyone.
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="p-3 bg-[#0C0E14] border border-[#222A38] rounded-2xl relative shadow-md opacity-80">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="w-5 h-5 bg-[#33D097] rounded-full flex items-center justify-center text-[10px] font-bold text-[#0C0E14]">EA</div>
-                                        <span className="text-[11px] font-bold text-[#E3E5EA]">EquityAlerts alerts</span>
-                                        <span className="text-[9px] text-[#6B7280] ml-auto">5m ago</span>
-                                    </div>
-                                    <p className="text-[10px] text-brand-light leading-relaxed">
-                                        🚨 <strong>RELIANCE (NSE)</strong>: Board meeting scheduled on June 15, 2026 to consider dividend payments and financial statements. <span className="text-brand-cyan hover:underline cursor-pointer font-bold block mt-1">Read PDF Document →</span>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="pt-6 border-t border-[#222A38] mt-6 text-[10px] text-brand-textMuted text-left relative z-10 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-[#33D097] rounded-full animate-ping" />
-                        <span>Instant verification and alerts sent straight to your device.</span>
-                    </div>
-                </div>
-
             </div>
-        </div>
+        
     );
-}
-
-export default Login;
+}export default Login;
