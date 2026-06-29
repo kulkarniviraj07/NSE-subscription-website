@@ -393,24 +393,27 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
     KNOW the window is closed, so re-trying free-form would just fail again
     asynchronously and loop forever.
 
-    TEMPLATE-STACKING CAP: a filing whose recipient is OUTSIDE the 24h window
-    can only go as a template. We allow exactly ONE template per closed window
-    and queue every further filing in pending_filings, so users never receive a
-    stack of templates. Queued filings flush (free-form) the instant the user
-    re-engages (taps the reminder button or sends any message).
+    SUMMARY + PDF: when a filing goes out as a template (window closed), the
+    body {{1}} variable carries the AI summary (`caption`) so the subscriber
+    receives the summary text AND the PDF together — no button to tap.
+
+    TEMPLATE-STACKING CAP: by default every filing for a recipient OUTSIDE the
+    24h window is delivered as its own utility template, so silent subscribers
+    receive all their filings. Set config.ONE_TEMPLATE_PER_WINDOW = True to cap
+    this to a single template per closed window (queuing the rest until the user
+    re-engages) — the old behaviour, kept as an option.
     """
-    # Attach the "Full Summary" quick-reply button payload so a tap comes
-    # back as an inbound message (reopening the 24h window) — but ONLY if
-    # the approved template actually has that button (config flag).
-    reply_payload = None
-    if getattr(config, "TEMPLATE_SUMMARY_BUTTON", False):
-        reply_payload = f"SUM::{file_key}"
+    # The template body {{1}} carries the AI summary itself, so the user gets
+    # summary + PDF in one message. whatsapp.py flattens it for Meta.
+    template_params = [caption] if caption else (template_params or [])
 
     template_configured = bool(getattr(config, "TEMPLATE_NAME", "") or "")
     window_is_open      = bot_db.window_open(phone)
+    cap_templates       = bool(getattr(config, "ONE_TEMPLATE_PER_WINDOW", False))
 
     # If this filing is template-bound (window closed, or an explicit template
-    # retry), enforce the one-template-per-window cap up front.
+    # retry), make sure a template is configured — and optionally enforce the
+    # one-template-per-window cap.
     if force_template or not window_is_open:
         if not template_configured:
             bot_db.queue_pending_filing(
@@ -419,7 +422,7 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             )
             print(f"⏳ Window closed for {phone} & no template — queued {file_key}.")
             return False
-        if not bot_db.can_send_batch_template(phone):
+        if cap_templates and not bot_db.can_send_batch_template(phone):
             bot_db.queue_pending_filing(
                 phone, file_key, file_path, caption, filing_id=filing_id,
                 error="template cap: suppressed to avoid stacking"
@@ -431,13 +434,12 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
     try:
         # Window open  → free-form (no auto-template fallback: if our window
         #                read is stale, the 131047 below routes through the cap).
-        # Window closed/forced → go straight to the single allowed template.
+        # Window closed/forced → go straight to the template (summary + PDF).
         send_force = bool(force_template or not window_is_open)
         channel, wamid = whatsapp.send_pdf(phone, file_path, caption=caption,
                                            template_params=template_params,
                                            force_template=send_force,
-                                           allow_template_fallback=False,
-                                           reply_payload=reply_payload)
+                                           allow_template_fallback=False)
         if channel == "template":
             # Spend this window's single template allowance.
             bot_db.mark_batch_template_sent(phone)
@@ -482,15 +484,14 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             # Our window read was stale (we thought it was open) — the window is
             # actually closed. Route through the cap: send the ONE allowed
             # template now, otherwise queue so we never stack templates.
-            if template_configured and bot_db.can_send_batch_template(phone):
+            if template_configured and (not cap_templates or bot_db.can_send_batch_template(phone)):
                 print(f"⏳ Window actually closed for {phone} — sending the "
-                      f"single allowed template for {file_key}.")
+                      f"template (summary + PDF) for {file_key}.")
                 try:
                     channel, wamid = whatsapp.send_pdf(
                         phone, file_path, caption=caption,
                         template_params=template_params,
                         force_template=True,
-                        reply_payload=reply_payload,
                     )
                     bot_db.mark_batch_template_sent(phone)
                     bot_db.mark_filing_sent(phone, file_key)

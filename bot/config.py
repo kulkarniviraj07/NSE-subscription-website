@@ -68,15 +68,29 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 # Setup (Meta WhatsApp Manager → Message Templates):
 #   1. Create a template, category "Utility".
 #   2. Header: type = Document.
-#   3. Body: your alert text. Use {{1}}, {{2}}, ... for any dynamic fields.
+#   3. Body: a single {{1}} variable — the bot fills it with the AI SUMMARY of
+#      the filing, so silent subscribers get the summary + PDF in one message.
+#      (e.g. body text: "{{1}}"  — or a short prefix followed by {{1}}.)
 #   4. Submit for approval, then put the exact name + language code below.
 #
 # Leave TEMPLATE_NAME = "" to disable the fallback (filings will instead be
 # queued and delivered the next time the user messages the bot).
 TEMPLATE_NAME             = "nse_bot"        # e.g. "nse_filing_alert" (must be APPROVED)
 TEMPLATE_LANG             = "en"      # must match the template's language code ("en", "en_US", ...)
-TEMPLATE_BODY_PARAM_COUNT = 1         # number of {{n}} variables in the template BODY (0 if none)
-TEMPLATE_SUMMARY_BUTTON = True   # set True ONLY after the button is approved
+TEMPLATE_BODY_PARAM_COUNT = 1         # number of {{n}} variables in the template BODY — {{1}} = the AI summary
+# The old "Full Summary" quick-reply button has been retired — nobody tapped it,
+# and the summary now arrives inline in the template body instead. Keep this
+# False. (To remove the button visually too, delete it from the approved
+# template in Meta WhatsApp Manager.)
+TEMPLATE_SUMMARY_BUTTON = False
+
+# Whether to cap template sends to ONE per closed 24h window. This used to be
+# enforced to avoid "many templates at once", with the rest queued until the
+# user re-engaged. But users weren't re-engaging (not tapping the reminder/
+# "manage companies" link), so every filing after the first was never delivered.
+# Set False to push EVERY announcement as its own utility template (summary +
+# PDF) so silent subscribers actually receive all their filings.
+ONE_TEMPLATE_PER_WINDOW   = os.environ.get("ONE_TEMPLATE_PER_WINDOW", "False").lower() in ("true", "1", "yes")
 
 # ── Step 6: 24h-window pre-close re-engagement reminder ──────
 # A single INTERACTIVE message sent shortly BEFORE a user's 24-hour service
