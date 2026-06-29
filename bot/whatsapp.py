@@ -56,7 +56,11 @@ def _safe_print(msg: str):
 # Meta rejects a template body parameter that contains newlines, tabs, or runs
 # of 4+ spaces. Our AI summaries are multi-line, so they must be flattened
 # before they can ride inside a template {{n}} variable.
-TEMPLATE_PARAM_MAX_LEN = 1024
+#
+# The cap is below WhatsApp's ~1024-char body limit on purpose: the approved
+# template body has a short fixed prefix around {{1}}, and the rendered body
+# (prefix + this value) must still fit — otherwise Meta rejects the send.
+TEMPLATE_PARAM_MAX_LEN = 900
 
 
 def _sanitize_template_param(text: str) -> str:
