@@ -9,7 +9,7 @@ function App() {
 return (
     <AuthProvider>
     <AppProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/portal">
         <AppRoutes />
         </BrowserRouter>
     </AppProvider>
