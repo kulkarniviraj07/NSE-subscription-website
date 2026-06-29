@@ -372,9 +372,12 @@ def handle_message(phone: str, text: str):
                         )
                         # Only mark sent if delivery is confirmed.
                         try:
+                            # If this has to fall back to a template, the body
+                            # {{1}} carries the caption so the user still gets
+                            # the details + PDF together (no button to tap).
                             _, wamid = whatsapp.send_pdf(
                                 phone, file_path, caption=caption,
-                                template_params=[name]
+                                template_params=[caption]
                             )
                             db.mark_filing_sent(phone, file_key)
                             db.remove_pending_filing(phone, file_key)

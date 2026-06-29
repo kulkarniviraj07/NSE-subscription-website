@@ -5,7 +5,14 @@
 #  silently printing and returning. Error 131047 (re-engagement,
 #  i.e. the 24-hour window has closed) is surfaced via the
 #  `is_reengagement` flag so callers can re-queue the filing.
+#
+#  CHANGE: the template fallback now carries the AI SUMMARY itself
+#  in the body {{1}} variable (alongside the PDF document header),
+#  so a silent subscriber receives the summary + PDF in one utility
+#  template — no "Full Summary" button to tap. The old quick-reply
+#  button path has been retired (nobody tapped it).
 # ============================================================
+import re
 import requests
 import os
 import sys
@@ -44,6 +51,24 @@ def _safe_print(msg: str):
         print(msg)
     except UnicodeEncodeError:
         print(msg.encode("ascii", errors="replace").decode("ascii"))
+
+
+# Meta rejects a template body parameter that contains newlines, tabs, or runs
+# of 4+ spaces. Our AI summaries are multi-line, so they must be flattened
+# before they can ride inside a template {{n}} variable.
+TEMPLATE_PARAM_MAX_LEN = 1024
+
+
+def _sanitize_template_param(text: str) -> str:
+    """
+    Flatten a (possibly multi-line) string so Meta accepts it as a template
+    body parameter. Collapses all whitespace runs — including newlines and
+    tabs — into single spaces and truncates to TEMPLATE_PARAM_MAX_LEN.
+    """
+    flattened = re.sub(r"\s+", " ", str(text or "")).strip()
+    if len(flattened) > TEMPLATE_PARAM_MAX_LEN:
+        flattened = flattened[:TEMPLATE_PARAM_MAX_LEN - 1].rstrip() + "…"
+    return flattened or "NSE filing"
 
 
 # ── Send plain text ───────────────────────────────────────────
@@ -194,11 +219,15 @@ def _send_pdf_template(to: str, media_id: str, filename: str, body_params,
     WhatsApp Manager and have a Document header. config.TEMPLATE_BODY_PARAM_COUNT
     must equal the number of {{n}} variables in the template body (0 if none).
 
-    reply_payload: if set, attaches a quick-reply button parameter (index 0)
-    carrying this payload, so a tap arrives back as an inbound 'button' message
-    (which reopens the 24h window and lets us push the full free-form summary).
-    The approved template MUST actually contain a quick-reply button at index 0,
-    otherwise Meta rejects the send — gate this with config.TEMPLATE_SUMMARY_BUTTON.
+    The body parameters now carry the AI SUMMARY (see db_watcher._try_send), so a
+    silent subscriber receives the summary text AND the PDF together in this one
+    utility template — without having to tap anything. Each parameter is flattened
+    via _sanitize_template_param() so multi-line summaries don't get rejected by
+    Meta (which forbids newlines/tabs/4+ spaces inside a template variable).
+
+    reply_payload is accepted for backwards compatibility but is intentionally
+    IGNORED — the old "Full Summary" quick-reply button has been retired because
+    nobody tapped it (the summary now arrives inline in the body instead).
     """
     count = int(getattr(config, "TEMPLATE_BODY_PARAM_COUNT", 0) or 0)
 
@@ -218,15 +247,10 @@ def _send_pdf_template(to: str, media_id: str, filename: str, body_params,
             params.append("NSE filing")
         components.append({
             "type": "body",
-            "parameters": [{"type": "text", "text": str(p)} for p in params],
-        })
-
-    if reply_payload:
-        components.append({
-            "type": "button",
-            "sub_type": "quick_reply",
-            "index": "0",
-            "parameters": [{"type": "payload", "payload": str(reply_payload)[:256]}],
+            "parameters": [
+                {"type": "text", "text": _sanitize_template_param(p)}
+                for p in params
+            ],
         })
 
     payload = {
