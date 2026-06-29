@@ -212,7 +212,7 @@
     background: linear-gradient(var(--card2), var(--card2)) padding-box,
                 var(--grad) border-box;
     border: 1.6px solid transparent !important;
-    box-shadow: 0 26px 80px rgba(51,208,151,.13);
+    box-shadow: 0 26px 80px rgba(214, 190, 54, 0.675);
 }
 
 /* FAQ accordion */

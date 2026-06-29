@@ -131,56 +131,11 @@ export function Dashboard() {
                 </div>
             </div>
 
-            {/* ── MARKET STATUS WIDGETS ─────────────────────────────────── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
-                {marketWidgets.map((w) => (
-                    <div
-                        key={w.id}
-                        className={`p-4 bg-[#0B0E16] border border-[#1E2535] rounded-2xl hover:border-[#33D097]/30 hover:shadow-[0_0_28px_rgba(51,208,151,0.07)] transition-all duration-300 group${
-                            w.colSpan ? " col-span-2 md:col-span-1" : ""
-                        }`}
-                    >
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-[#646E7E] font-bold uppercase tracking-widest">
-                                {w.label}
-                            </span>
-                            <span className="w-1.5 h-1.5 bg-[#33D097] rounded-full animate-pulse" />
-                        </div>
-                        <span className="text-[11px] font-bold text-[#33D097]">{w.status}</span>
-                        <svg
-                            className="w-full h-8 mt-2"
-                            viewBox="0 0 160 30"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                        >
-                            <defs>
-                                <linearGradient
-                                    id={`spark-${w.id}`}
-                                    x1="0%"
-                                    y1="0%"
-                                    x2="100%"
-                                    y2="0%"
-                                >
-                                    <stop offset="0%" stopColor="#33D097" stopOpacity="0.5" />
-                                    <stop offset="100%" stopColor="#38BDF8" stopOpacity="1" />
-                                </linearGradient>
-                            </defs>
-                            <path
-                                d={w.path}
-                                stroke={`url(#spark-${w.id})`}
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                    </div>
-                ))}
-            </div>
-
             {/* ── WATCHLIST + SUBSCRIPTION ──────────────────────────────── */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 {/* Watchlist Card */}
-                <div className="relative rounded-2xl overflow-hidden bg-[#0B0E16] border border-[#1E2535] hover:border-[#33D097]/20 transition-all duration-300 flex flex-col min-h-[340px]">
+                <div className="relative w-full max-w-3xl mx-auto rounded-2xl overflow-hidden bg-[#0B0E16] border border-[#1E2535] hover:border-[#33D097]/20 transition-all duration-300 flex flex-col min-h-[340px]">
                     <div
                         className="absolute top-0 right-0 w-48 h-48 pointer-events-none"
                         style={{
@@ -276,119 +231,6 @@ export function Dashboard() {
                             className="mt-5 w-full py-3 rounded-xl font-bold text-sm bg-[#33D097] hover:bg-[#3BE6A7] text-[#04130C] transition-all duration-200 shadow-[0_4px_20px_rgba(51,208,151,0.22)] hover:shadow-[0_4px_28px_rgba(51,208,151,0.38)] active:scale-[0.98]"
                         >
                             Configure Watchlist Tickers
-                        </button>
-                    </div>
-                </div>
-
-                {/* Subscription / License Card */}
-                <div
-                    className="relative rounded-2xl overflow-hidden flex flex-col min-h-[340px] transition-all duration-300"
-                    style={{
-                        background: isPremium
-                            ? "linear-gradient(145deg, #0B0E16 0%, #0D1520 100%)"
-                            : "#0B0E16",
-                        border: isPremium
-                            ? "1px solid rgba(51,208,151,0.28)"
-                            : "1px solid #1E2535",
-                        boxShadow: isPremium
-                            ? "0 0 40px rgba(51,208,151,0.06)"
-                            : "none",
-                    }}
-                >
-                    {isPremium && (
-                        <>
-                            <div
-                                className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-                                style={{
-                                    background:
-                                        "linear-gradient(90deg, transparent 10%, rgba(51,208,151,0.5) 50%, transparent 90%)",
-                                }}
-                            />
-                            <div
-                                className="absolute inset-0 pointer-events-none"
-                                style={{
-                                    background:
-                                        "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(51,208,151,0.07) 0%, transparent 70%)",
-                                }}
-                            />
-                        </>
-                    )}
-
-                    <div className="relative z-10 p-6 flex flex-col flex-1">
-                        {/* Card header */}
-                        <div className="flex items-center justify-between mb-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-[#33D097]/10 border border-[#33D097]/20 flex items-center justify-center">
-                                    <svg
-                                        className="w-4 h-4 text-[#33D097]"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
-                                        />
-                                    </svg>
-                                </div>
-                                <h3 className="font-display text-[17px] font-bold text-[#EDF0F4]">
-                                    Terminal License
-                                </h3>
-                            </div>
-                            <span className="text-[10px] font-mono font-bold text-[#33D097] bg-[#33D097]/10 px-2.5 py-1 border border-[#33D097]/20 rounded-lg uppercase tracking-wider">
-                                Verified
-                            </span>
-                        </div>
-
-                        <div className="flex-1">
-                            <span className="text-[10px] font-mono font-bold text-[#646E7E] uppercase tracking-widest">
-                                License Tier
-                            </span>
-                            <div className="mt-2 flex items-baseline gap-3">
-                                <span className="font-display text-[44px] font-bold text-[#EDF0F4] tracking-tight leading-none">
-                                    {currentPlanName}
-                                </span>
-                                <span className="text-[10px] font-mono font-bold px-2 py-1 rounded-lg bg-[#33D097]/10 text-[#33D097] border border-[#33D097]/20 uppercase tracking-wider">
-                                    Active
-                                </span>
-                            </div>
-                            <p className="text-[#98A0AE] text-sm mt-4 leading-relaxed">
-                                {isPremium
-                                    ? "Professional license active. Full terminal access to Nifty 500 with instant priority dispatch alerts."
-                                    : "Starter license active. Monitored alerts covering up to 5 NSE/BSE stocks with standard dispatch."}
-                            </p>
-
-                            <div className="mt-5 grid grid-cols-2 gap-3 font-mono">
-                                <div className="px-3 py-2.5 rounded-xl bg-[#10141E] border border-[#1E2535]">
-                                    <span className="block text-[9px] text-[#646E7E] font-bold uppercase tracking-widest mb-1">
-                                        Companies
-                                    </span>
-                                    <span className="text-sm font-bold text-[#EDF0F4]">
-                                        {isPremium ? "500" : "5"} max
-                                    </span>
-                                </div>
-                                <div className="px-3 py-2.5 rounded-xl bg-[#10141E] border border-[#1E2535]">
-                                    <span className="block text-[9px] text-[#646E7E] font-bold uppercase tracking-widest mb-1">
-                                        Alert Speed
-                                    </span>
-                                    <span className="text-sm font-bold text-[#EDF0F4]">
-                                        {isPremium ? "Priority" : "Standard"}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => navigate("/plans")}
-                            className={`mt-5 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 active:scale-[0.98] ${
-                                isPremium
-                                    ? "bg-[#10141E] border border-[#1E2535] hover:border-[#33D097]/30 text-[#33D097] hover:bg-[#141927]"
-                                    : "bg-[#33D097] hover:bg-[#3BE6A7] text-[#04130C] shadow-[0_4px_20px_rgba(51,208,151,0.22)] hover:shadow-[0_4px_28px_rgba(51,208,151,0.38)]"
-                            }`}
-                        >
-                            {isPremium ? "Manage License" : "Upgrade to Premium"}
                         </button>
                     </div>
                 </div>
