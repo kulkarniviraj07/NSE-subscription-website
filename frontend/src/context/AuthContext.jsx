@@ -86,7 +86,9 @@ export function AuthProvider({ children }) {
             window.initSendOTP({
                 widgetId:      MSG91_WIDGET_ID,
                 tokenAuth:     MSG91_TOKEN_AUTH,
-                identifier:    `91${mobile}`,   // MSG91 expects country code without +
+                // NOTE: Do NOT pass `identifier` here — MSG91 auto-sends an OTP when
+                // identifier is present in the config. The pages call window.sendOtp()
+                // explicitly, so passing identifier here causes a duplicate OTP.
                 exposeMethods: true,             // prevents default popup; exposes window methods
                 success: (data) => {
                     // data.message contains the verified access-token
