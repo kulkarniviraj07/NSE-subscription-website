@@ -335,7 +335,7 @@ export function PrivacyPolicy() {
                                         </svg>
                                     </div>
                                     <strong>Phone number</strong>
-                                    <span>Used for account authentication via WhatsApp OTP and for delivering filing notifications.</span>
+                                    <span>Used for account authentication via SMS OTP (MSG91) and for delivering filing notifications via WhatsApp.</span>
                                 </div>
                                 <div className="data-card">
                                     <div className="data-card-icon">
@@ -376,7 +376,7 @@ export function PrivacyPolicy() {
                             <ul className="purpose-list">
                                 <li>Authenticate your identity and manage your account securely</li>
                                 <li>Process subscriptions and payments</li>
-                                <li>Send transactional WhatsApp messages — OTPs, payment confirmations, and stock filing alerts</li>
+                                <li>Send SMS one-time passwords (OTPs) via MSG91 for authentication, transactional WhatsApp messages — payment confirmations and stock filing alerts — via Meta Cloud API</li>
                                 <li>Analyse usage patterns to improve platform features and performance</li>
                                 <li>Respond to support inquiries promptly</li>
                             </ul>
@@ -396,10 +396,18 @@ export function PrivacyPolicy() {
                                     <span className="consent-pill always">Always on</span>
                                 </div>
                                 <div className="partner-row">
+                                    <div className="partner-logo meta">M91</div>
+                                    <div className="partner-info">
+                                        <strong>MSG91</strong>
+                                        <span>SMS OTP delivery for account authentication via the MSG91 widget.</span>
+                                    </div>
+                                    <span className="consent-pill always">Always on</span>
+                                </div>
+                                <div className="partner-row">
                                     <div className="partner-logo meta">Meta</div>
                                     <div className="partner-info">
                                         <strong>WhatsApp / Meta</strong>
-                                        <span>OTP delivery and transactional filing notifications via the WhatsApp Cloud API.</span>
+                                        <span>Transactional filing notifications via the WhatsApp Cloud API.</span>
                                     </div>
                                     <span className="consent-pill always">Always on</span>
                                 </div>

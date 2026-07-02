@@ -12,31 +12,8 @@ const authController =
         "../controllers/authController"
     );
 
-// Limit OTP dispatch to curb WhatsApp abuse and OTP flooding
-const sendOtpLimiter =
-    rateLimit({
-
-        windowMs: 15 * 60 * 1000,
-
-        limit: 5,
-
-        standardHeaders: true,
-
-        legacyHeaders: false,
-
-        message: {
-
-            success: false,
-
-            message:
-                "Too many OTP requests. Please try again after 15 minutes."
-
-        }
-
-    });
-
-// Limit verification attempts to block brute-forcing the 6-digit OTP
-const verifyOtpLimiter =
+// Limit token-verification attempts to block replay / brute-force
+const verifyTokenLimiter =
     rateLimit({
 
         windowMs: 15 * 60 * 1000,
@@ -60,21 +37,11 @@ const verifyOtpLimiter =
 
 router.post(
 
-    "/send-otp",
+    "/verify-token",
 
-    sendOtpLimiter,
+    verifyTokenLimiter,
 
-    authController.sendOtp
-
-);
-
-router.post(
-
-    "/verify-otp",
-
-    verifyOtpLimiter,
-
-    authController.verifyOtp
+    authController.verifyToken
 
 );
 

@@ -237,7 +237,7 @@ export function TermsOfService() {
                             <ul className="rule-list">
                                 <li>Be at least 18 years of age</li>
                                 <li>Be a resident or citizen of India, or a person otherwise permitted by applicable law to use such a service</li>
-                                <li>Have a valid WhatsApp account linked to a phone number you own or control</li>
+                                <li>Have a valid Indian mobile number (SIM) that can receive SMS messages</li>
                                 <li>Not be prohibited from receiving our services under any applicable laws</li>
                             </ul>
                             <p>By creating an account, you represent and warrant that you meet all eligibility requirements.</p>
@@ -246,7 +246,7 @@ export function TermsOfService() {
                         <div className="section" id="accounts">
                             <span className="section-tag">03</span>
                             <h2>Accounts &amp; Registration</h2>
-                            <p>You register on EquityAlerts using your WhatsApp-linked phone number, which is verified via a one-time password (OTP). You are responsible for:</p>
+                            <p>You register on EquityAlerts using your mobile phone number, which is verified via a one-time password (OTP) delivered by SMS. You are responsible for:</p>
                             <ul className="rule-list">
                                 <li>Keeping your account credentials confidential</li>
                                 <li>All activity that occurs under your account</li>

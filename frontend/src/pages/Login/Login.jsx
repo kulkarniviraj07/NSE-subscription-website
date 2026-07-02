@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import Input from "../../components/ui/Input";
@@ -7,30 +7,36 @@ import { MarketChartBackground } from "../../components/common/MarketChartBackgr
 
 /**
  * High-fidelity, dual-step OTP Login Page for EquityAlerts.
+ *
+ * Flow (MSG91 widget with exposeMethods: true):
+ *  Step 1 – MOBILE: user enters number → window.sendOtp() delivers SMS OTP
+ *  Step 2 – OTP:    user enters code  → window.verifyOtp() validates it
+ *                   on success the widget fires the main success callback
+ *                   which resolves the promise in AuthContext → backend verifyToken
  */
 export function Login() {
     const { login, verifyLogin } = useAuth();
     const navigate = useNavigate();
 
-    // Verification steps: "MOBILE" or "OTP"
+    /** "MOBILE" | "OTP" */
     const [step, setStep] = useState("MOBILE");
-    
-    // Inputs
-    const [mobile, setMobile] = useState("");
-    const [otp, setOtp] = useState("");
-    
-    // UI Helpers
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+
+    const [mobile, setMobile]               = useState("");
+    const [otp, setOtp]                     = useState("");
+    const [loading, setLoading]             = useState(false);
+    const [resending, setResending]         = useState(false);
+    const [error, setError]                 = useState("");
     const [successMessage, setSuccessMessage] = useState("");
 
-    // Simple mobile regex check (e.g. 10 digits)
-    const validateMobile = (num) => {
-        return /^\d{10}$/.test(num);
-    };
+    // Holds the MSG91 access-token that the widget delivers once OTP is verified
+    const accessTokenRef = useRef(null);
+
+    const validateMobile = (num) => /^\d{10}$/.test(num);
 
     /**
-     * Phase 1: Submit Mobile Number to request WhatsApp OTP
+     * Phase 1: Initialise the MSG91 widget → deliver OTP via SMS.
+     * The widget's success callback (inside AuthContext.login) fires
+     * only after the user has successfully verified the OTP.
      */
     const handleSendOtp = async (e) => {
         e.preventDefault();
@@ -41,7 +47,6 @@ export function Login() {
             setError("Mobile number is required");
             return;
         }
-
         if (!validateMobile(mobile)) {
             setError("Please enter a valid 10-digit mobile number");
             return;
@@ -49,13 +54,43 @@ export function Login() {
 
         try {
             setLoading(true);
-            await login(mobile);
-            setSuccessMessage("OTP sent! Check your WhatsApp for the code.");
+
+            // AuthContext.login() initialises the MSG91 widget and returns a Promise
+            // that resolves with the access-token once the user verifies the OTP.
+            // We store the token in a ref; the page moves to the OTP step
+            // so the user can type the SMS code and then click Verify.
+            const tokenPromise = login(mobile);
+
+            // Give the widget a moment to register the window methods
+            // before transitioning to the OTP step.
+            await new Promise((r) => setTimeout(r, 500));
+
+            // Trigger OTP delivery via SMS (channel '11')
+            if (typeof window.sendOtp === "function") {
+                window.sendOtp(
+                    `91${mobile}`,
+                    () => {},   // success handled by widget's main success callback
+                    (err) => console.warn("sendOtp delivery warning:", err)
+                );
+            }
+
+            setSuccessMessage("OTP sent to your mobile via SMS.");
             setStep("OTP");
+
+            // When the user calls window.verifyOtp() below and it succeeds,
+            // the widget resolves tokenPromise.
+            tokenPromise.then((token) => {
+                accessTokenRef.current = token;
+            }).catch((err) => {
+                console.error("Widget verification failed:", err);
+                setError(err?.message || "OTP verification failed. Please try again.");
+                setStep("MOBILE");
+            });
+
         } catch (err) {
             setError(
-                err?.response?.data?.message || 
-                "Failed to send verification code. Please try again."
+                err?.message ||
+                "Failed to initialise OTP verification. Please try again."
             );
         } finally {
             setLoading(false);
@@ -63,33 +98,89 @@ export function Login() {
     };
 
     /**
-     * Phase 2: Submit OTP to verify and sign in
+     * Phase 2: Call window.verifyOtp() with the code the user typed.
+     * On success the widget fires the main success callback (resolving tokenPromise),
+     * which sets accessTokenRef.current. We then exchange it for our session JWT.
      */
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
         setError("");
 
-        if (!otp) {
-            setError("Verification code is required");
+        if (!otp || otp.length < 4) {
+            setError("Please enter the 4-6 digit verification code");
             return;
         }
 
-        if (otp.length < 4) {
-            setError("Verification code must be at least 4 digits");
+        if (typeof window.verifyOtp !== "function") {
+            setError("Verification service unavailable. Please refresh the page.");
             return;
         }
 
         try {
             setLoading(true);
-            await verifyLogin(mobile, otp);
+
+            // Wrap window.verifyOtp in a Promise
+            await new Promise((resolve, reject) => {
+                window.verifyOtp(
+                    otp,
+                    (data) => resolve(data),
+                    (err)  => reject(
+                        new Error(
+                            (typeof err === "string" ? err : err?.message) ||
+                            "Invalid OTP. Please try again."
+                        )
+                    )
+                );
+            });
+
+            // Widget succeeded → accessTokenRef is populated by the tokenPromise callback.
+            // If for some reason the ref hasn't been set yet, wait briefly.
+            let attempts = 0;
+            while (!accessTokenRef.current && attempts < 10) {
+                await new Promise((r) => setTimeout(r, 100));
+                attempts++;
+            }
+
+            if (!accessTokenRef.current) {
+                throw new Error("Verification token not received. Please try again.");
+            }
+
+            await verifyLogin(mobile, accessTokenRef.current);
             navigate("/dashboard");
+
         } catch (err) {
             setError(
-                err?.response?.data?.message || 
-                "Invalid code entered. Please check and try again."
+                err?.response?.data?.message ||
+                err?.message ||
+                "Invalid code. Please check and try again."
             );
         } finally {
             setLoading(false);
+        }
+    };
+
+    /** Resend OTP via SMS */
+    const handleResend = async () => {
+        if (typeof window.retryOtp !== "function") {
+            setError("Retry service unavailable. Please go back and try again.");
+            return;
+        }
+        try {
+            setResending(true);
+            setError("");
+            await new Promise((resolve, reject) => {
+                window.retryOtp(
+                    "11",           // SMS channel
+                    (data) => resolve(data),
+                    (err)  => reject(err)
+                );
+            });
+            setSuccessMessage("OTP resent via SMS.");
+            setTimeout(() => setSuccessMessage(""), 4000);
+        } catch (err) {
+            setError("Failed to resend OTP. Please try again.");
+        } finally {
+            setResending(false);
         }
     };
 
@@ -111,7 +202,7 @@ export function Login() {
                         </h1>
 
                         <p className="text-brand-slate text-sm mt-2 max-w-xs leading-relaxed">
-                            Access premium corporate disclosures and watchlist alerts via WhatsApp OTP.
+                            Access premium corporate disclosures and watchlist alerts via SMS OTP.
                         </p>
                     </div>
 
@@ -143,7 +234,7 @@ export function Login() {
                                     disabled={loading}
                                     className="w-full"
                                 >
-                                    Send OTP via WhatsApp
+                                    Send OTP via SMS
                                 </Button>
                             </form>
                         ) : (
@@ -181,6 +272,18 @@ export function Login() {
                                     }
                                 />
 
+                                {/* Resend link */}
+                                <div className="text-center">
+                                    <button
+                                        type="button"
+                                        onClick={handleResend}
+                                        disabled={resending}
+                                        className="text-xs font-semibold text-brand-cyan hover:text-[#3BE6A7] disabled:opacity-50 transition-colors"
+                                    >
+                                        {resending ? "Resending..." : "Resend OTP via SMS"}
+                                    </button>
+                                </div>
+
                                 <div className="flex gap-3">
                                     <Button
                                         variant="outline"
@@ -189,6 +292,7 @@ export function Login() {
                                             setStep("MOBILE");
                                             setError("");
                                             setOtp("");
+                                            accessTokenRef.current = null;
                                         }}
                                         className="flex-1 !text-brand-light hover:!bg-brand-dark !border-brand-border"
                                     >
