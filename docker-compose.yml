@@ -32,9 +32,7 @@ services:
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in the environment}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in the environment}
-      - MSG91_AUTH_KEY=${MSG91_AUTH_KEY:-}
-      - WHATSAPP_TOKEN=${WHATSAPP_TOKEN:?WHATSAPP_TOKEN must be set in the environment}
-      - WHATSAPP_PHONE_NUMBER_ID=${PHONE_NUMBER_ID:-1094754613731490}
+      - MSG91_AUTH_KEY=${MSG91_AUTH_KEY:?MSG91_AUTH_KEY must be set in the environment}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:?RAZORPAY_KEY_ID must be set in the environment}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:?RAZORPAY_KEY_SECRET must be set in the environment}
       - PREMIUM_COUPON_100=${PREMIUM_COUPON_100:-PUREFRAME100}

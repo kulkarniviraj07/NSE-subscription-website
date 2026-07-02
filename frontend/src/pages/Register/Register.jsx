@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import Input from "../../components/ui/Input";
@@ -7,33 +7,38 @@ import { MarketChartBackground } from "../../components/common/MarketChartBackgr
 
 /**
  * High-fidelity, dual-step registration page for EquityAlerts.
+ *
+ * Flow (MSG91 widget with exposeMethods: true):
+ *  Step 1 – DETAILS: user enters name + number → window.sendOtp() delivers SMS OTP
+ *  Step 2 – OTP:     user enters code → window.verifyOtp() validates it
+ *                    on success the widget fires the main success callback
+ *                    which resolves the promise in AuthContext → backend verifyToken
  */
 export function Register() {
     const { register, verifyRegister } = useAuth();
     const navigate = useNavigate();
 
-    // Steps: "DETAILS" or "OTP"
+    /** "DETAILS" | "OTP" */
     const [step, setStep] = useState("DETAILS");
-    
-    // Inputs
-    const [name, setName] = useState("");
-    const [mobile, setMobile] = useState("");
-    const [otp, setOtp] = useState("");
 
-    // UI Helpers
-    const [loading, setLoading] = useState(false);
-    const [nameError, setNameError] = useState("");
-    const [mobileError, setMobileError] = useState("");
-    const [otpError, setOtpError] = useState("");
-    const [apiError, setApiError] = useState("");
+    const [name, setName]                   = useState("");
+    const [mobile, setMobile]               = useState("");
+    const [otp, setOtp]                     = useState("");
+    const [loading, setLoading]             = useState(false);
+    const [resending, setResending]         = useState(false);
+    const [nameError, setNameError]         = useState("");
+    const [mobileError, setMobileError]     = useState("");
+    const [otpError, setOtpError]           = useState("");
+    const [apiError, setApiError]           = useState("");
     const [successMessage, setSuccessMessage] = useState("");
 
-    const validateMobile = (num) => {
-        return /^\d{10}$/.test(num);
-    };
+    // Holds the MSG91 access-token resolved by the widget on OTP success
+    const accessTokenRef = useRef(null);
+
+    const validateMobile = (num) => /^\d{10}$/.test(num);
 
     /**
-     * Phase 1: Submit Details to request SMS OTP
+     * Phase 1: Validate inputs → initialise the MSG91 widget → deliver OTP via SMS.
      */
     const handleRegisterDetails = async (e) => {
         e.preventDefault();
@@ -47,7 +52,6 @@ export function Register() {
             setNameError("Full name is required");
             isValid = false;
         }
-
         if (!mobile) {
             setMobileError("Mobile number is required");
             isValid = false;
@@ -60,13 +64,39 @@ export function Register() {
 
         try {
             setLoading(true);
-            await register(name, mobile);
-            setSuccessMessage("OTP sent! Check your WhatsApp for the code.");
+
+            // AuthContext.register() initialises the MSG91 widget and returns a
+            // Promise that resolves with the access-token once OTP is verified.
+            const tokenPromise = register(name, mobile);
+
+            // Give the widget a moment to register the window methods
+            await new Promise((r) => setTimeout(r, 500));
+
+            // Trigger OTP delivery via SMS
+            if (typeof window.sendOtp === "function") {
+                window.sendOtp(
+                    `91${mobile}`,
+                    () => {},
+                    (err) => console.warn("sendOtp delivery warning:", err)
+                );
+            }
+
+            setSuccessMessage("OTP sent to your mobile via SMS.");
             setStep("OTP");
+
+            // Capture the access-token when the widget resolves
+            tokenPromise.then((token) => {
+                accessTokenRef.current = token;
+            }).catch((err) => {
+                console.error("Widget verification failed:", err);
+                setApiError(err?.message || "OTP verification failed. Please try again.");
+                setStep("DETAILS");
+            });
+
         } catch (err) {
             setApiError(
-                err?.response?.data?.message || 
-                "Registration failed. Mobile may already be verified or network is slow."
+                err?.message ||
+                "Registration failed. Please try again."
             );
         } finally {
             setLoading(false);
@@ -74,7 +104,8 @@ export function Register() {
     };
 
     /**
-     * Phase 2: Submit Details + OTP to complete verification & creation
+     * Phase 2: Call window.verifyOtp() with the code the user typed,
+     * then exchange the widget's access-token for an internal session JWT.
      */
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
@@ -86,17 +117,75 @@ export function Register() {
             return;
         }
 
+        if (typeof window.verifyOtp !== "function") {
+            setOtpError("Verification service unavailable. Please refresh the page.");
+            return;
+        }
+
         try {
             setLoading(true);
-            await verifyRegister(name, mobile, otp);
+
+            // Wrap window.verifyOtp in a Promise
+            await new Promise((resolve, reject) => {
+                window.verifyOtp(
+                    otp,
+                    (data) => resolve(data),
+                    (err)  => reject(
+                        new Error(
+                            (typeof err === "string" ? err : err?.message) ||
+                            "Invalid OTP. Please try again."
+                        )
+                    )
+                );
+            });
+
+            // Wait briefly for the accessTokenRef to be set by the tokenPromise
+            let attempts = 0;
+            while (!accessTokenRef.current && attempts < 10) {
+                await new Promise((r) => setTimeout(r, 100));
+                attempts++;
+            }
+
+            if (!accessTokenRef.current) {
+                throw new Error("Verification token not received. Please try again.");
+            }
+
+            await verifyRegister(name, mobile, accessTokenRef.current);
             navigate("/dashboard");
+
         } catch (err) {
             setOtpError(
-                err?.response?.data?.message || 
+                err?.response?.data?.message ||
+                err?.message ||
                 "Verification failed. The code entered may be incorrect."
             );
         } finally {
             setLoading(false);
+        }
+    };
+
+    /** Resend OTP via SMS */
+    const handleResend = async () => {
+        if (typeof window.retryOtp !== "function") {
+            setOtpError("Retry service unavailable. Please go back and try again.");
+            return;
+        }
+        try {
+            setResending(true);
+            setOtpError("");
+            await new Promise((resolve, reject) => {
+                window.retryOtp(
+                    "11",          // SMS channel
+                    (data) => resolve(data),
+                    (err)  => reject(err)
+                );
+            });
+            setSuccessMessage("OTP resent via SMS.");
+            setTimeout(() => setSuccessMessage(""), 4000);
+        } catch (err) {
+            setOtpError("Failed to resend OTP. Please try again.");
+        } finally {
+            setResending(false);
         }
     };
 
@@ -119,7 +208,7 @@ export function Register() {
                         </h1>
 
                         <p className="text-brand-slate text-sm mt-2 max-w-xs leading-relaxed">
-                            Register to unlock instant WhatsApp alerts for NSE & BSE disclosures.
+                            Register to unlock instant SMS alerts for NSE &amp; BSE disclosures.
                         </p>
                     </div>
 
@@ -213,6 +302,18 @@ export function Register() {
                                     }
                                 />
 
+                                {/* Resend link */}
+                                <div className="text-center">
+                                    <button
+                                        type="button"
+                                        onClick={handleResend}
+                                        disabled={resending}
+                                        className="text-xs font-semibold text-brand-cyan hover:text-[#3BE6A7] disabled:opacity-50 transition-colors"
+                                    >
+                                        {resending ? "Resending..." : "Resend OTP via SMS"}
+                                    </button>
+                                </div>
+
                                 <div className="flex gap-3">
                                     <Button
                                         variant="outline"
@@ -221,6 +322,7 @@ export function Register() {
                                             setStep("DETAILS");
                                             setOtpError("");
                                             setOtp("");
+                                            accessTokenRef.current = null;
                                         }}
                                         className="flex-1 !text-brand-light hover:!bg-brand-dark !border-brand-border"
                                     >

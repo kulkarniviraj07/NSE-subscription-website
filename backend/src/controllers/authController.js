@@ -1,8 +1,3 @@
-const otpService =
-    require(
-        "../services/otpService"
-    );
-
 const userRepository =
     require(
         "../repositories/userRepository"
@@ -13,10 +8,7 @@ const jwtUtil =
         "../utils/jwt"
     );
 
-const { sendWhatsAppText } =
-    require(
-        "../utils/whatsappSender"
-    );
+const https = require("https");
 
 /**
  * Normalize an Indian mobile number to its 10-digit form.
@@ -60,229 +52,164 @@ function normalizeMobile(
 
 }
 
-async function sendOtp(
-    req,
-    res
-) {
+/**
+ * Verify the MSG91 widget access-token server-side.
+ * @param {string} accessToken - JWT token returned by the MSG91 OTP widget
+ * @returns {Promise<object>} Parsed MSG91 API response on success
+ */
+async function verifyMsg91AccessToken(accessToken) {
 
-    try {
+    const authkey = process.env.MSG91_AUTH_KEY;
 
-        const mobile =
-            normalizeMobile(
-                req.body.mobile
-            );
+    if (!authkey) {
+        throw new Error("MSG91_AUTH_KEY not set in environment");
+    }
 
-        if (
-            !mobile
-        ) {
+    const body = JSON.stringify({
+        authkey,
+        "access-token": accessToken,
+    });
 
-            return res
-                .status(400)
-                .json({
+    return new Promise((resolve, reject) => {
 
-                    success: false,
+        const options = {
+            hostname: "control.msg91.com",
+            path: "/api/v5/widget/verifyAccessToken",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(body),
+            },
+        };
 
-                    message:
-                        "A valid 10-digit mobile number is required"
-
-                });
-
-        }
-
-        const otp =
-
-            await otpService
-                .createOtp(
-                    mobile
-                );
-
-        // Send OTP via WhatsApp
-        try {
-            await sendWhatsAppText(
-                mobile,
-                `🔐 *EquityAlerts OTP Verification*\n\nYour one-time password is:\n\n*${otp}*\n\nThis OTP is valid for 5 minutes. Do not share it with anyone.`
-            );
-        } catch (waErr) {
-            console.error(`❌ WhatsApp OTP send failed:`, waErr.message);
-
-            return res
-                .status(502)
-                .json({
-
-                    success: false,
-
-                    message:
-                        "Failed to send OTP. Please try again."
-
-                });
-        }
-
-        return res.json({
-
-            success: true,
-
-            message: "OTP sent to your WhatsApp number",
-
+        const req = https.request(options, (res) => {
+            let data = "";
+            res.on("data", (chunk) => { data += chunk; });
+            res.on("end", () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (
+                        parsed.type === "error" ||
+                        parsed.msgType === "error"
+                    ) {
+                        reject(
+                            new Error(
+                                parsed.message || "MSG91 token verification failed"
+                            )
+                        );
+                    } else {
+                        resolve(parsed);
+                    }
+                } catch (e) {
+                    reject(new Error(`MSG91 parse error: ${data}`));
+                }
+            });
         });
 
-    }
-    catch (err) {
+        req.on("error", reject);
+        req.write(body);
+        req.end();
 
-        console.error(
-            err
-        );
-
-        return res
-            .status(500)
-            .json({
-
-                success: false,
-
-                message:
-                    "Failed to send OTP"
-
-            });
-
-    }
+    });
 
 }
 
-
-async function verifyOtp(
+/**
+ * POST /api/auth/verify-token
+ *
+ * Receives the MSG91 widget access-token from the frontend,
+ * validates it with MSG91, then upserts the user in the database
+ * and issues an internal JWT session token.
+ *
+ * Body:
+ *   - accessToken {string} - The JWT token returned by the MSG91 widget on success
+ *   - mobile      {string} - 10-digit or 12-digit (with 91 prefix) mobile number
+ *   - name        {string} - (optional) Full name, used during first-time registration
+ */
+async function verifyToken(
     req,
     res
 ) {
 
     try {
 
+        const { accessToken, name: rawName } = req.body;
+
         const mobile =
-            normalizeMobile(
-                req.body.mobile
-            );
+            normalizeMobile(req.body.mobile);
 
-        const otp =
-            typeof req.body.otp === "string" ||
-            typeof req.body.otp === "number"
-                ? String(req.body.otp).trim()
-                : "";
-
-        if (
-            !mobile ||
-            !/^\d{6}$/.test(otp)
-        ) {
-
+        if (!accessToken) {
             return res
                 .status(400)
                 .json({
-
                     success: false,
-
-                    message:
-                        "A valid mobile number and 6-digit OTP are required"
-
+                    message: "accessToken is required",
                 });
-
         }
 
-        let name =
-            typeof req.body.name === "string"
-                ? req.body.name.trim().slice(0, 100)
-                : null;
-
-        if (
-            name === ""
-        ) {
-
-            name = null;
-
-        }
-
-        const valid =
-
-            await otpService
-                .verifyOtp(
-
-                    mobile,
-
-                    otp
-
-                );
-
-        if (
-            !valid
-        ) {
-
+        if (!mobile) {
             return res
                 .status(400)
                 .json({
-
                     success: false,
-
-                    message:
-                        "Invalid OTP"
-
+                    message: "A valid 10-digit mobile number is required",
                 });
-
         }
 
+        // 1. Verify the token with MSG91 server-side
+        try {
+            await verifyMsg91AccessToken(accessToken);
+        } catch (msg91Err) {
+            console.error("❌ MSG91 token verification failed:", msg91Err.message);
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "OTP verification failed. Please try again.",
+                });
+        }
+
+        // 2. Upsert user — find existing or create new
         let user =
+            await userRepository.findByMobile(mobile);
 
-            await userRepository
-                .findByMobile(
+        if (!user) {
+
+            let name =
+                typeof rawName === "string"
+                    ? rawName.trim().slice(0, 100)
+                    : null;
+
+            if (name === "") name = null;
+
+            user =
+                await userRepository.create(
+                    name,
                     mobile
                 );
 
-        if (
-            !user
-        ) {
-
-            user =
-
-                await userRepository
-                    .create(
-
-                        name,
-
-                        mobile
-
-                    );
-
         }
 
+        // 3. Issue internal session JWT
         const token =
-
-            jwtUtil.generateToken(
-                user
-            );
+            jwtUtil.generateToken(user);
 
         return res.json({
-
             success: true,
-
-            message:
-                "Verification successful",
-
+            message: "Verification successful",
             token,
-
-            user
-
+            user,
         });
-    }
-    catch (err) {
 
-        console.error(
-            err
-        );
+    } catch (err) {
+
+        console.error(err);
 
         return res
             .status(500)
             .json({
-
                 success: false,
-
-                message:
-                    "Verification failed"
-
+                message: "Verification failed",
             });
 
     }
@@ -291,8 +218,6 @@ async function verifyOtp(
 
 module.exports = {
 
-    sendOtp,
-
-    verifyOtp
+    verifyToken,
 
 };
