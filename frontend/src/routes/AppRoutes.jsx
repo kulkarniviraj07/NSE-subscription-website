@@ -15,6 +15,7 @@ import DashboardLayout from "../components/layout/DashboardLayout";
 import LandingPage from "../pages/LandingPage";
 import Login from "../pages/Login/Login";
 import Register from "../pages/Register/Register";
+import WhatsAppWelcome from "../pages/WhatsAppWelcome/WhatsAppWelcome";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import CompanySelection from "../pages/Companies/CompanySelection";
 import Profile from "../pages/Profile/Profile";
@@ -145,6 +146,22 @@ function AppRoutes() {
                         <PublicRoute>
                             <Register />
                         </PublicRoute>
+                    }
+                />
+
+                {/*
+                    One-time screen shown right after a brand-new user's
+                    first login/registration, asking them to message the
+                    WhatsApp alerts bot. Protected (requires a valid session)
+                    but rendered outside DashboardLayout since it's a
+                    standalone full-screen step, not a dashboard page.
+                */}
+                <Route
+                    path="/whatsapp-welcome"
+                    element={
+                        <ProtectedRoute>
+                            <WhatsAppWelcome />
+                        </ProtectedRoute>
                     }
                 />
 
