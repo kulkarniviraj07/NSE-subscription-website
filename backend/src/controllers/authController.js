@@ -173,6 +173,13 @@ async function verifyToken(
         let user =
             await userRepository.findByMobile(mobile);
 
+        // Track whether this person was already in our database *before*
+        // this request. Used by the frontend to decide whether to show the
+        // one-time "start getting Alerts on WhatsApp" screen. This is derived
+        // purely in-memory from the lookup above — no schema change, and it
+        // never affects existing users' data.
+        const isNewUser = !user;
+
         if (!user) {
 
             let name =
@@ -199,6 +206,7 @@ async function verifyToken(
             message: "Verification successful",
             token,
             user,
+            isNewUser,
         });
 
     } catch (err) {

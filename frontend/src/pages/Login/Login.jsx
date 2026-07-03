@@ -145,8 +145,11 @@ export function Login() {
                 throw new Error("Verification token not received. Please try again.");
             }
 
-            await verifyLogin(mobile, accessTokenRef.current);
-            navigate("/dashboard");
+            const result = await verifyLogin(mobile, accessTokenRef.current);
+
+            // Brand-new accounts (not previously in our database) go through
+            // the one-time "send Hi on WhatsApp" step before the dashboard.
+            navigate(result?.isNewUser ? "/whatsapp-welcome" : "/dashboard");
 
         } catch (err) {
             setError(
