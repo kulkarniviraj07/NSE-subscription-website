@@ -14,11 +14,18 @@ import threading
 import psycopg2
 import psycopg2.extras
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 import config
 import database as bot_db
 import whatsapp
 from whatsapp import WhatsAppError
+
+try:
+    import message_card
+except Exception as _mc_err:      # Pillow missing, etc. — degrade to raw PDFs.
+    message_card = None
+    print(f"⚠️  message_card unavailable ({_mc_err}); will send raw filing PDFs.")
 
 
 def get_pg_conn():
@@ -377,6 +384,50 @@ def _full_caption(company, symbol, filing_type, file_path, raw_time) -> str:
     return _caption_with_time(body, company, symbol, raw_time)
 
 
+def _resolve_send_path(file_path, caption, file_key):
+    """
+    Decide which PDF actually gets uploaded.
+
+    Renders the AI caption into a branded "Stock Bits" card PDF (once per
+    filing, cached on disk and reused across every subscriber and every retry)
+    and returns that path — so subscribers receive the nicely laid-out card
+    instead of the raw NSE filing. On any failure — or when disabled/unavailable
+    — falls back to the raw filing PDF so a delivery is never lost to a
+    rendering hiccup.
+
+    Defaults ON. Set config.SEND_AS_CARD = False to ship the original NSE PDF.
+    """
+    if not getattr(config, "SEND_AS_CARD", True) or message_card is None:
+        return file_path
+    if not caption:
+        return file_path
+
+    try:
+        cache_dir = getattr(config, "CARD_CACHE_DIR", "") or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "generated_cards"
+        )
+        os.makedirs(cache_dir, exist_ok=True)
+        # Same basename as the filing, so the document the user sees keeps a
+        # recognisable filename (e.g. "TCS_28052026.pdf").
+        card_path = os.path.join(cache_dir, file_key or "filing.pdf")
+        if not card_path.lower().endswith(".pdf"):
+            card_path += ".pdf"
+
+        # Cache hit: caption is stable per file_key, so a previously rendered
+        # card is still valid — skip the re-render.
+        if os.path.exists(card_path) and os.path.getsize(card_path) > 0:
+            return card_path
+
+        message_card.render_message_pdf(
+            caption, card_path, timestamp=datetime.now().strftime("%H:%M")
+        )
+        whatsapp._safe_print(f"🎨 Rendered Stock Bits card → {os.path.basename(card_path)}")
+        return card_path
+    except Exception as e:
+        whatsapp._safe_print(f"⚠️  Card render failed for {file_key} ({e}) — sending raw PDF.")
+        return file_path
+
+
 def _try_send(phone, file_path, caption, file_key, filing_id=None,
               template_params=None, force_template=False):
     """
@@ -431,12 +482,16 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
                   f"{file_key} instead of stacking another template.")
             return False
 
+    # Render (or reuse) the branded card PDF that will actually be uploaded.
+    # Falls back to the raw filing PDF if cards are disabled or rendering fails.
+    send_path = _resolve_send_path(file_path, caption, file_key)
+
     try:
         # Window open  → free-form (no auto-template fallback: if our window
         #                read is stale, the 131047 below routes through the cap).
         # Window closed/forced → go straight to the template (summary + PDF).
         send_force = bool(force_template or not window_is_open)
-        channel, wamid = whatsapp.send_pdf(phone, file_path, caption=caption,
+        channel, wamid = whatsapp.send_pdf(phone, send_path, caption=caption,
                                            template_params=template_params,
                                            force_template=send_force,
                                            allow_template_fallback=False)
@@ -489,7 +544,7 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
                       f"template (summary + PDF) for {file_key}.")
                 try:
                     channel, wamid = whatsapp.send_pdf(
-                        phone, file_path, caption=caption,
+                        phone, send_path, caption=caption,
                         template_params=template_params,
                         force_template=True,
                     )
