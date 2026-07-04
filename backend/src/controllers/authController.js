@@ -173,12 +173,20 @@ async function verifyToken(
         let user =
             await userRepository.findByMobile(mobile);
 
+        // QA/testing override: this specific number is always treated as a
+        // first-time user so the WhatsApp onboarding screen can be re-tested
+        // repeatedly without needing direct database access to delete the row.
+        // It does NOT delete or reset the underlying account — the user's
+        // real row, id, and session are untouched; only this response's
+        // isNewUser flag is forced to true. Safe to remove once QA is done.
+        const TEST_MOBILE_ALWAYS_NEW = "9767240651";
+
         // Track whether this person was already in our database *before*
         // this request. Used by the frontend to decide whether to show the
         // one-time "start getting Alerts on WhatsApp" screen. This is derived
         // purely in-memory from the lookup above — no schema change, and it
         // never affects existing users' data.
-        const isNewUser = !user;
+        const isNewUser = !user || mobile === TEST_MOBILE_ALWAYS_NEW;
 
         if (!user) {
 
