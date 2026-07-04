@@ -145,11 +145,14 @@ export function Login() {
                 throw new Error("Verification token not received. Please try again.");
             }
 
-            const result = await verifyLogin(mobile, accessTokenRef.current);
+            await verifyLogin(mobile, accessTokenRef.current);
 
-            // Brand-new accounts (not previously in our database) go through
-            // the one-time "send Hi on WhatsApp" step before the dashboard.
-            navigate(result?.isNewUser ? "/whatsapp-welcome" : "/dashboard");
+            // No navigate() call here on purpose: setting isAuthenticated
+            // (inside verifyLogin) causes PublicRoute, which still wraps
+            // this /login page, to re-render and redirect on its own —
+            // to /whatsapp-welcome for brand-new accounts, or /dashboard
+            // otherwise. Calling navigate() here too used to race with
+            // that redirect and could send new users to the wrong screen.
 
         } catch (err) {
             setError(

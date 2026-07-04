@@ -20,6 +20,14 @@ const MSG91_TOKEN_AUTH    = import.meta.env.VITE_MSG91_TOKEN_AUTH;
 export function AuthProvider({ children }) {
     const [user, setUserState] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    // Tracks whether the most recent login/register was for a brand-new
+    // account. Read by PublicRoute (see AppRoutes.jsx) to decide whether an
+    // authenticated user should land on /whatsapp-welcome or /dashboard.
+    // Setting this in the SAME batch as setIsAuthenticated (rather than
+    // navigating separately from the calling page) avoids a race where
+    // PublicRoute's own redirect-to-dashboard fires before the page's
+    // explicit navigate() call, sending new users to the wrong screen.
+    const [isNewUser, setIsNewUser] = useState(false);
     const [loading, setLoading] = useState(true);
 
     // ── Bootstrap ─────────────────────────────────────────────────────────
@@ -133,6 +141,7 @@ export function AuthProvider({ children }) {
             setToken(data.token);
             setUser(data.user);
             setUserState(data.user);
+            setIsNewUser(!!data.isNewUser);
             setIsAuthenticated(true);
         }
         return data;
@@ -160,6 +169,7 @@ export function AuthProvider({ children }) {
             setToken(data.token);
             setUser(data.user);
             setUserState(data.user);
+            setIsNewUser(!!data.isNewUser);
             setIsAuthenticated(true);
         }
         return data;
@@ -171,12 +181,14 @@ export function AuthProvider({ children }) {
     function logout() {
         clearAuth();
         setUserState(null);
+        setIsNewUser(false);
         setIsAuthenticated(false);
     }
 
     const value = {
         user,
         isAuthenticated,
+        isNewUser,
         loading,
         login,
         verifyLogin,

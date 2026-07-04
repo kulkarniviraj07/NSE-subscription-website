@@ -70,6 +70,7 @@ function PublicRoute({ children }) {
 
     const {
         isAuthenticated,
+        isNewUser,
         loading
     } = useAuth();
 
@@ -78,9 +79,14 @@ function PublicRoute({ children }) {
     }
 
     if (isAuthenticated) {
+        // Decide the destination here, in the same place that reacts to
+        // isAuthenticated flipping true, instead of relying on a separate
+        // navigate() call from the Login/Register page. Those two used to
+        // race — this redirect could fire (sending the user to /dashboard)
+        // before the page's own navigate("/whatsapp-welcome") ran.
         return (
             <Navigate
-                to="/dashboard"
+                to={isNewUser ? "/whatsapp-welcome" : "/dashboard"}
                 replace
             />
         );
