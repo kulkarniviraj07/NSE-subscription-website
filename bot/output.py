@@ -298,44 +298,121 @@ PUREFRAME_AD = (
 )
 
 
+BRAND_NAME = "PureFrame"
+
+
+def _impact_hashtag(impact: str) -> str:
+    """'low' → ' #LowImpact'. Empty/unknown → ''."""
+    imp = (impact or "").strip().lower()
+    if imp.startswith("high"):  return " #HighImpact"
+    if imp.startswith("med"):   return " #MediumImpact"
+    if imp.startswith("low"):   return " #LowImpact"
+    return ""
+
+
+def _parse_event_impact_summary(text: str, fallback_event: str = ""):
+    """
+    Pull EVENT / IMPACT / SUMMARY out of the LLM output. Robust to the model
+    dropping a label — if no SUMMARY label is found the whole text is treated
+    as the summary.
+    """
+    event = impact = summary = ""
+    m = re.search(r"EVENT:\s*(.+)", text, re.IGNORECASE)
+    if m:
+        event = m.group(1).strip().splitlines()[0].strip()
+    m = re.search(r"IMPACT:\s*([A-Za-z]+)", text, re.IGNORECASE)
+    if m:
+        impact = m.group(1).strip()
+    m = re.search(r"SUMMARY:\s*(.+)", text, re.IGNORECASE | re.DOTALL)
+    if m:
+        summary = m.group(1).strip()
+    if not summary:
+        summary = text.strip()
+    if not event:
+        event = (fallback_event or "").strip()
+    return event, impact, summary
+
+
+def _build_stock_bits_message(
+    company_name: str,
+    event: str,
+    body: str,
+    impact: str = "",
+    brand_url: str = "https://equityalerts.in/portal",
+    short_url: str = "",
+    download_url: str = "",
+) -> str:
+    """
+    Assemble the EquiSense-style 'Stock Bits' WhatsApp message:
+
+        📢 *PureFrame Stock Bits!!*
+
+        🏢 <company>
+
+        ⚡ <event type>
+
+        🤖 <summary> #Impact
+
+        🔗 <insights/short link>
+        📎 Download filing: <pdf url>
+
+        You are receiving this stock update per your request on <brand>
+        Disclaimer: <brand>
+
+    The long download URL is intentional — it widens the WhatsApp bubble to the
+    full-width look of the reference message.
+    """
+    lines = [f"📢 *{BRAND_NAME} Stock Bits!!*", ""]
+    lines.append(f"🏢 {company_name}")
+    lines.append("")
+    if event:
+        lines.append(f"⚡ {event}")
+        lines.append("")
+    lines.append(f"🤖 {body}{_impact_hashtag(impact)}")
+    lines.append("")
+
+    link_added = False
+    if short_url:
+        lines.append(f"🔗 {short_url}")
+        link_added = True
+    if download_url:
+        lines.append(f"📎 Download filing: {download_url}")
+        link_added = True
+    if link_added:
+        lines.append("")
+
+    lines.append(f"You are receiving this stock update per your request on {brand_url}")
+    lines.append(f"Disclaimer: {brand_url}")
+    return "\n".join(lines)
+
+
 def format_whatsapp_message(
     summary: FinancialSummary,
     equisense_url: str = "https://equityalerts.in/portal",
     short_url: str = "",
+    download_url: str = "",
 ) -> str:
-    """Convert a FinancialSummary into the PureFrame Result Bits WhatsApp format."""
-    lines = []
-
-    # Header
-    lines.append("*📢 PureFrame Result Bits!!*")
-    lines.append(f"💼 {summary.company_name} | {summary.reporting_period} Results Out")
-    lines.append("📊 Key Metrics")
-
-    # Metric blocks
+    """Convert a FinancialSummary into the EquiSense-style Stock Bits format."""
+    body_lines = [f"{summary.reporting_period} results are out. Key metrics:"]
     for m in summary.metrics:
-        lines.append("")
-        lines.append(f"{m.name} ({m.short_name}):")
+        body_lines.append("")
+        body_lines.append(f"{m.name} ({m.short_name}):")
         for p in m.periods:
-            lines.append(f"🗓️ {p.period_label}: {p.value}")
-        qoq_str   = _format_change(m.qoq_change)
-        yoy_str   = _format_change(m.yoy_change)
-        lines.append(
-            f"{_trend_emoji(m.qoq_change)} {qoq_str} QoQ, "
-            f"{_trend_emoji(m.yoy_change)} {yoy_str} YoY"
+            body_lines.append(f"🗓️ {p.period_label}: {p.value}")
+        body_lines.append(
+            f"{_trend_emoji(m.qoq_change)} {_format_change(m.qoq_change)} QoQ, "
+            f"{_trend_emoji(m.yoy_change)} {_format_change(m.yoy_change)} YoY"
         )
 
-    # AI Insights
-    lines.append("")
-    lines.append("🤖 Key Insights:")
-    lines.append(f" {summary.insights_url or short_url or equisense_url}")
-    lines.append(
-        f"You are receiving this stock update per your request on {equisense_url}"
+    return _build_stock_bits_message(
+        summary.company_name,
+        f"{summary.reporting_period} Results Out",
+        "\n".join(body_lines),
+        impact="",
+        brand_url=equisense_url,
+        short_url=summary.insights_url or short_url,
+        download_url=download_url,
     )
-
-    lines.append("")
-    lines.append(PUREFRAME_AD)
-
-    return "\n".join(lines)
 
 
 def summarize_content(
@@ -344,10 +421,14 @@ def summarize_content(
     provider: str = "openai",
     model: str | None = None,
     equisense_url: str = "https://equityalerts.in/portal",
+    filing_type: str = "",
+    download_url: str = "",
+    short_url: str = "",
 ) -> str:
     """
-    Plain-text content summary for PDFs with no financial tables.
-    Uses the same LLM provider to produce a short WhatsApp-friendly filing alert.
+    EquiSense-style 'Stock Bits' alert for filings with no financial tables.
+    Asks the LLM for a short event category, an impact level and a plain
+    summary, then lays them out like the reference message.
     """
     _model = model or PROVIDER_DEFAULTS.get(provider)
 
@@ -372,31 +453,27 @@ def summarize_content(
 
     prompt = ChatPromptTemplate.from_messages([
         ("system",
-         "You are a financial analyst summarising Indian stock exchange filings for retail investors.\n"
-         "Write a concise 3-5 line plain-English summary of what this filing is about.\n"
-         "Focus on: what action the company is taking, why it matters, and any key dates or amounts.\n"
-         "Do NOT use bullet points or headers. Do NOT include financial metric tables.\n"
-         "Return ONLY the summary text — no JSON, no markdown fences."),
-        ("human", "Filing content:\n\n{pdf_text}"),
+         "You summarise Indian stock-exchange (NSE/BSE) filings for retail investors.\n"
+         "Return EXACTLY these three labelled lines and nothing else:\n"
+         "EVENT: <2-5 word category of the filing, e.g. 'Investor Conference Participation', "
+         "'Board Meeting Intimation', 'Dividend Declaration', 'Order Win'>\n"
+         "IMPACT: <one word — High, Medium or Low — how price-sensitive this filing is>\n"
+         "SUMMARY: <2-4 sentence plain-English summary: what the company is doing, why it "
+         "matters, and any key dates or amounts. No bullet points, no headers, no markdown.>"),
+        ("human", "Filing title: {filing_type}\n\nFiling content:\n\n{pdf_text}"),
     ])
 
-    result = (prompt | llm).invoke({"pdf_text": pdf_text[:8000]})
-    content_text = result.content.strip() if hasattr(result, "content") else str(result).strip()
+    result = (prompt | llm).invoke({
+        "pdf_text": pdf_text[:8000],
+        "filing_type": filing_type or "N/A",
+    })
+    raw = result.content.strip() if hasattr(result, "content") else str(result).strip()
+    event, impact, body = _parse_event_impact_summary(raw, fallback_event=filing_type)
 
-    lines = [
-        "*📢 PureFrame Filing Alert!!*",
-        f"💼 {company_name}",
-        "",
-        "📋 Filing Summary:",
-        content_text,
-        "",
-        "🤖 Key Insights:",
-        f" {equisense_url}",
-        f"You are receiving this stock update per your request on {equisense_url}",
-        "",
-        PUREFRAME_AD,
-    ]
-    return "\n".join(lines)
+    return _build_stock_bits_message(
+        company_name, event, body, impact=impact,
+        brand_url=equisense_url, short_url=short_url, download_url=download_url,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -474,6 +551,8 @@ def process_pdf(
     short_url: str = "",
     save_json: bool = False,
     company_hint: str | None = None,
+    filing_type: str = "",
+    download_url: str = "",
 ) -> str:
     """
     End-to-end pipeline: PDF → text → LangChain extraction → formatted message.
@@ -534,11 +613,14 @@ def process_pdf(
     # Step 3: Format — use financial summary if metrics found, else plain content summary
     print("[3/3] Formatting WhatsApp message...", file=sys.stderr)
     if summary and summary.metrics:
-        return format_whatsapp_message(summary, equisense_url=equisense_url, short_url=short_url)
+        return format_whatsapp_message(summary, equisense_url=equisense_url,
+                                       short_url=short_url, download_url=download_url)
 
     print("      No financial metrics — generating content summary instead.", file=sys.stderr)
     return summarize_content(pdf_text, company_name=company, provider=provider,
-                             model=model, equisense_url=equisense_url)
+                             model=model, equisense_url=equisense_url,
+                             filing_type=filing_type, download_url=download_url,
+                             short_url=short_url)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -83,6 +83,7 @@ def fetch_new_filings():
                 {config.COL_COMPANY_NAME}   AS company_name,
                 {config.COL_FILE_PATH}      AS file_path,
                 {config.COL_FILING_TYPE}    AS filing_type,
+                pdf_url                     AS pdf_url,
                 {config.COL_CREATED_AT}     AS created_at,
                 EXTRACT(EPOCH FROM (NOW() - created_at))::int AS age_seconds
             FROM {config.FILINGS_TABLE}
@@ -268,7 +269,8 @@ def warm_up_summary_engine():
         pass
 
 
-def _run_summary(file_path: str, company: str | None = None):
+def _run_summary(file_path: str, company: str | None = None,
+                 filing_type: str = "", download_url: str = ""):
     out = _get_output_module()
     if out is None:
         return None
@@ -277,29 +279,36 @@ def _run_summary(file_path: str, company: str | None = None):
         provider=getattr(config, "SUMMARY_PROVIDER", "openai"),
         model=getattr(config, "SUMMARY_MODEL", "gpt-4o-mini"),
         company_hint=company,
+        filing_type=filing_type,
+        download_url=download_url,
     )
     if not msg:
         return None
     msg = msg.strip()
-    if "*📢 PureFrame" in msg:
-        return msg[msg.find("*📢 PureFrame"):]
+    # New EquiSense format opens with "📢 *PureFrame Stock Bits!!*"; strip any
+    # leading log noise by starting at the first megaphone.
+    marker = msg.find("📢")
+    if marker != -1:
+        return msg[marker:]
     return msg or None
 
 
-def generate_pdf_summary(file_path: str, company: str | None = None) -> str | None:
+def generate_pdf_summary(file_path: str, company: str | None = None,
+                         filing_type: str = "", download_url: str = "") -> str | None:
     """
     Generate the AI summary for one PDF, in-process, with a HARD timeout so a
     slow/hung LLM call can never stall delivery. Returns None on any failure
     (caller then sends the basic caption). Safe to run from several threads at
     once (the caption pool does exactly that). `company` is used as the display
     name when the PDF text doesn't state it (avoids "Unknown Company").
+    `filing_type` feeds the ⚡ event line and `download_url` the 📎 link.
     """
     print(f"🤖 Generating AI summary for {os.path.basename(file_path)}...")
     box = {}
 
     def _worker():
         try:
-            box["value"] = _run_summary(file_path, company)
+            box["value"] = _run_summary(file_path, company, filing_type, download_url)
         except Exception as e:
             box["error"] = e
 
@@ -334,6 +343,12 @@ def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
     and is NEVER stored in the summary cache — so it can't be duplicated on
     re-sends. Capped at WhatsApp's 1024-char caption limit.
     """
+    # The EquiSense-style 'Stock Bits' body is self-contained (it opens with 📢
+    # and already carries the company). Don't prepend the legacy header/time to
+    # it, and allow the full text-message length (WhatsApp text caps at 4096).
+    if body.lstrip().startswith("📢"):
+        return body if len(body) <= 4096 else body[:4093].rstrip() + "..."
+
     header = (
         f"🏢 *{company}* ({symbol})\n"
         f"🕒 Filed on exchange: {_format_exchange_time(raw_time)}"
@@ -344,20 +359,22 @@ def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
     return caption
 
 
-def _build_caption(file_path, fallback_caption, company=None):
+def _build_caption(file_path, fallback_caption, company=None,
+                   filing_type="", download_url=""):
     """
     Return the rich AI summary BODY (cached if already generated). Caches the
-    time-less body only — the exchange time is added per-send by
-    _caption_with_time, so it can never be doubled up.
+    time-less body only. `filing_type` and `download_url` feed the ⚡ event line
+    and 📎 download link. The cap is well above the old template limit so the
+    footer + download link at the end of a text message aren't truncated away.
     """
     file_key = os.path.basename(file_path).strip()
     cached   = bot_db.get_filing_summary(file_key)
     if cached:
         return cached
 
-    ai_summary = generate_pdf_summary(file_path, company)
+    ai_summary = generate_pdf_summary(file_path, company, filing_type, download_url)
     if ai_summary:
-        trimmed = ai_summary[:1017] + "..." if len(ai_summary) > 1020 else ai_summary
+        trimmed = ai_summary[:3997] + "..." if len(ai_summary) > 4000 else ai_summary
         bot_db.save_filing_summary(file_key, trimmed)
         return trimmed
     return fallback_caption
@@ -374,13 +391,15 @@ _caption_pool = ThreadPoolExecutor(
 )
 
 
-def _full_caption(company, symbol, filing_type, file_path, raw_time) -> str:
-    """One-message caption = exchange time + AI summary (or basic fallback)."""
+def _full_caption(company, symbol, filing_type, file_path, raw_time,
+                  download_url="") -> str:
+    """One-message caption = EquiSense Stock Bits alert (or basic fallback)."""
     fallback = (
         f"📄 *{company}* — {filing_type}\n"
         f"🏦 Symbol: {symbol}"
     )
-    body = _build_caption(file_path, fallback, company)
+    body = _build_caption(file_path, fallback, company,
+                          filing_type=filing_type, download_url=download_url)
     return _caption_with_time(body, company, symbol, raw_time)
 
 
@@ -461,6 +480,45 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
     template_configured = bool(getattr(config, "TEMPLATE_NAME", "") or "")
     window_is_open      = bot_db.window_open(phone)
     cap_templates       = bool(getattr(config, "ONE_TEMPLATE_PER_WINDOW", False))
+
+    # ── TEXT-ONLY delivery (EquiSense style, link only, no attachment) ───────
+    # When enabled we push the message as PLAIN TEXT with the 📎 download link —
+    # no document/template attachment. Meta only allows free-form text INSIDE
+    # the 24-hour window, so a closed window means we QUEUE the filing and it
+    # goes out the moment the user next messages (which reopens the window).
+    if getattr(config, "SEND_AS_TEXT", True):
+        if not window_is_open or force_template:
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error="text-only: window closed, queued for re-engagement"
+            )
+            print(f"⏳ Window closed for {phone} — queued {file_key} "
+                  f"(text-only; delivers when the user next messages).")
+            return False
+        try:
+            wamid = whatsapp.send_text(phone, caption)
+            bot_db.mark_filing_sent(phone, file_key)
+            bot_db.remove_pending_filing(phone, file_key)
+            if wamid:
+                bot_db.store_wamid(wamid, phone, file_key, file_path, caption,
+                                   filing_id=filing_id, channel="text")
+            whatsapp._safe_print(f"[OK] Sent text alert to {phone} for {file_key}")
+            return True
+        except WhatsAppError as e:
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error=f"text send failed: {e}"
+            )
+            if not e.is_reengagement:
+                print(f"❌ Text send failed for {phone} ({file_key}): {e}")
+            return False
+        except Exception as e:
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error=f"text send error: {e}"
+            )
+            print(f"❌ Unexpected text send error for {phone} ({file_key}): {e}")
+            return False
 
     # If this filing is template-bound (window closed, or an explicit template
     # retry), make sure a template is configured — and optionally enforce the
@@ -629,15 +687,16 @@ def process_new_filings():
             continue
 
         jobs.append({
-            "filing_id":   filing_id,
-            "symbol":      symbol,
-            "company":     company,
-            "file_path":   file_path,
-            "filing_type": filing_type,
-            "raw_time":    filing.get("created_at"),
-            "age_seconds": filing.get("age_seconds"),
-            "subscribers": subscribers,
-            "file_key":    os.path.basename(file_path).strip(),
+            "filing_id":    filing_id,
+            "symbol":       symbol,
+            "company":      company,
+            "file_path":    file_path,
+            "filing_type":  filing_type,
+            "download_url": filing.get("pdf_url") or "",
+            "raw_time":     filing.get("created_at"),
+            "age_seconds":  filing.get("age_seconds"),
+            "subscribers":  subscribers,
+            "file_key":     os.path.basename(file_path).strip(),
         })
 
     if not jobs:
@@ -647,7 +706,7 @@ def process_new_filings():
     futures = {
         j["file_key"]: _caption_pool.submit(
             _full_caption, j["company"], j["symbol"], j["filing_type"],
-            j["file_path"], j["raw_time"],
+            j["file_path"], j["raw_time"], j["download_url"],
         )
         for j in jobs
     }
@@ -733,7 +792,7 @@ def deliver_backfill_for_subscribers():
                 symbol = symbol.upper().strip()
                 name = config.COMPANY_LIST.get(symbol, db_company_name or symbol)
                 pg_cur.execute("""
-                    SELECT id, title, local_path, announcement_time
+                    SELECT id, title, local_path, pdf_url, announcement_time
                     FROM announcements
                     WHERE UPPER(company_symbol) = UPPER(%s)
                       AND download_status = 'DOWNLOADED'
@@ -756,8 +815,9 @@ def deliver_backfill_for_subscribers():
 
                     # One message: exchange time + AI summary (cached after the
                     # first build, so repeated backfill passes are cheap).
-                    caption = _full_caption(name, symbol, "New Filing",
-                                            file_path, row['announcement_time'])
+                    caption = _full_caption(name, symbol, row.get("title") or "New Filing",
+                                            file_path, row['announcement_time'],
+                                            row.get("pdf_url") or "")
 
                     # Only marks sent on confirmed success; queues on failure.
                     if _try_send(phone, file_path, caption, file_key,
