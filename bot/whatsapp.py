@@ -77,15 +77,21 @@ def _sanitize_template_param(text: str) -> str:
 
 # ── Send plain text ───────────────────────────────────────────
 
-def send_text(to: str, message: str):
-    """Send a plain text WhatsApp message. Raises WhatsAppError on failure."""
+def send_text(to: str, message: str) -> str:
+    """Send a plain text WhatsApp message. Raises WhatsAppError on failure.
+
+    Returns the wamid (Meta message id) so callers can track delivery status.
+    Only valid INSIDE the 24-hour window (raises WhatsAppError 131047 otherwise).
+    WhatsApp allows a body up to 4096 chars; longer text is rejected.
+    """
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
         "type": "text",
-        "text": {"body": message},
+        "text": {"body": message[:4096], "preview_url": True},
     }
-    _post("/messages", payload)
+    resp = _post("/messages", payload)
+    return (resp.json().get("messages") or [{}])[0].get("id", "")
 
 
 # ── Send interactive reply buttons ────────────────────────────

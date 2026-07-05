@@ -92,6 +92,20 @@ TEMPLATE_SUMMARY_BUTTON = False
 # PDF) so silent subscribers actually receive all their filings.
 ONE_TEMPLATE_PER_WINDOW   = os.environ.get("ONE_TEMPLATE_PER_WINDOW", "False").lower() in ("true", "1", "yes")
 
+# ── Delivery style ───────────────────────────────────────────
+# SEND_AS_TEXT: deliver the EquiSense-style "Stock Bits" alert as a PLAIN TEXT
+# message (with the 📎 NSE download link) and NO attachment. The long download
+# URL widens the WhatsApp bubble to the full-width reference look. Meta only
+# allows free-form text inside the 24-hour window, so filings for silent users
+# (window closed) are queued and delivered the moment they next message the bot.
+# Set False to fall back to sending the PDF/card as a document.
+SEND_AS_TEXT   = os.environ.get("SEND_AS_TEXT", "True").lower() in ("true", "1", "yes")
+
+# SEND_AS_CARD: (only used when SEND_AS_TEXT is False) render each filing into a
+# WhatsApp-style card PDF and send THAT as the document instead of the raw NSE
+# PDF. Off by default now that we deliver text + link.
+SEND_AS_CARD   = os.environ.get("SEND_AS_CARD", "False").lower() in ("true", "1", "yes")
+
 # ── Step 6: 24h-window pre-close re-engagement reminder ──────
 # A single INTERACTIVE message sent shortly BEFORE a user's 24-hour service
 # window closes. Goals:
