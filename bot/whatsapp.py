@@ -94,6 +94,40 @@ def send_text(to: str, message: str) -> str:
     return (resp.json().get("messages") or [{}])[0].get("id", "")
 
 
+# ── Send a TEXT-ONLY template (no media header) ───────────────
+
+def send_text_template(to: str, body_params) -> str:
+    """
+    Deliver an approved TEXT-ONLY template — a template with NO media header,
+    only body variables. Valid OUTSIDE the 24-hour window (silent subscribers).
+
+    The template referenced by config.TEMPLATE_NAME must be APPROVED and must
+    have NO header (or the send is rejected). `body_params` fills {{1}}, {{2}},
+    ... in order; each is flattened via _sanitize_template_param() so Meta
+    accepts it (no newlines/tabs/4+ spaces inside a variable). Returns the wamid.
+    """
+    params = [
+        {"type": "text", "text": _sanitize_template_param(p)}
+        for p in (body_params or [])
+    ]
+    components = []
+    if params:
+        components.append({"type": "body", "parameters": params})
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "template",
+        "template": {
+            "name": config.TEMPLATE_NAME,
+            "language": {"code": getattr(config, "TEMPLATE_LANG", "en")},
+            "components": components,
+        },
+    }
+    resp = _post("/messages", payload)
+    return (resp.json().get("messages") or [{}])[0].get("id", "")
+
+
 # ── Send interactive reply buttons ────────────────────────────
 
 def send_interactive_buttons(to: str, body_text: str, buttons,
