@@ -8,6 +8,7 @@
 #  pending_filings retry queue instead of dropping it.
 # ============================================================
 import os
+import re
 import sys
 import time
 import threading
@@ -447,6 +448,23 @@ def _resolve_send_path(file_path, caption, file_key):
         return file_path
 
 
+def _split_download_link(caption: str):
+    """
+    Split the '📎 Download filing: <url>' line out of the caption.
+
+    Returns (body_without_that_line, url). Used for the TEXT-ONLY template,
+    whose body is  "{{1}}\\n\\n📎 Download filing: {{2}}"  — so {{1}} must NOT
+    already contain the link (or it would show twice), and {{2}} carries the raw
+    URL on its own so it can never be truncated.
+    """
+    url = ""
+    m = re.search(r"📎[^\n]*?(https?://\S+)", caption or "")
+    if m:
+        url = m.group(1)
+        caption = re.sub(r"\n?📎[^\n]*", "", caption).strip()
+    return caption, url
+
+
 def _try_send(phone, file_path, caption, file_key, filing_id=None,
               template_params=None, force_template=False):
     """
@@ -514,6 +532,53 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             bot_db.queue_pending_filing(
                 phone, file_key, file_path, caption, filing_id=filing_id,
                 error=f"text send error: {e}"
+            )
+            return False
+
+    # ── Closed window → TEXT-ONLY template (no attachment) ───────────────────
+    # The approved template is body-only (no media header):
+    #   {{1}} = summary (download line stripped), {{2}} = the download link.
+    # Reached only when the window is closed or a template retry is forced — the
+    # open-window text send above already returned on success.
+    if getattr(config, "SEND_AS_TEXT", True):
+        if not template_configured:
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error="window closed, no template configured"
+            )
+            print(f"⏳ Window closed for {phone} & no template — queued {file_key}.")
+            return False
+        if cap_templates and not bot_db.can_send_batch_template(phone):
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error="template cap: suppressed to avoid stacking"
+            )
+            print(f"🔕 Template already sent to {phone} this window — queued {file_key}.")
+            return False
+        try:
+            body1, url = _split_download_link(caption)
+            url = url or "https://equityalerts.in"
+            wamid = whatsapp.send_text_template(phone, [body1, url])
+            bot_db.mark_batch_template_sent(phone)
+            bot_db.mark_filing_sent(phone, file_key)
+            bot_db.remove_pending_filing(phone, file_key)
+            if wamid:
+                bot_db.store_wamid(wamid, phone, file_key, file_path, caption,
+                                   filing_id=filing_id, channel="template")
+            whatsapp._safe_print(f"[OK] Sent text template to {phone} for {file_key}")
+            return True
+        except WhatsAppError as e:
+            print(f"❌ Template send failed for {phone} ({file_key}): {e}")
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error=f"text template failed: {e}"
+            )
+            return False
+        except Exception as e:
+            print(f"❌ Unexpected template error for {phone} ({file_key}): {e}")
+            bot_db.queue_pending_filing(
+                phone, file_key, file_path, caption, filing_id=filing_id,
+                error=f"text template error: {e}"
             )
             return False
 

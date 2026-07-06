@@ -77,7 +77,7 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 # queued and delivered the next time the user messages the bot).
 TEMPLATE_NAME             = "nse_bot"        # e.g. "nse_filing_alert" (must be APPROVED)
 TEMPLATE_LANG             = "en"      # must match the template's language code ("en", "en_US", ...)
-TEMPLATE_BODY_PARAM_COUNT = 1         # number of {{n}} variables in the template BODY — {{1}} = the AI summary
+TEMPLATE_BODY_PARAM_COUNT = 2         # text-only template body: {{1}} = summary, {{2}} = download link
 # The old "Full Summary" quick-reply button has been retired — nobody tapped it,
 # and the summary now arrives inline in the template body instead. Keep this
 # False. (To remove the button visually too, delete it from the approved
