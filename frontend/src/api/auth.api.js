@@ -15,3 +15,20 @@ export async function verifyToken(payload) {
     const response = await API.post("/auth/verify-token", payload);
     return response.data;
 }
+
+/**
+ * TEMPORARY — Razorpay test-mode login (username/password).
+ * Calls the temporary backend endpoint used only for Razorpay's
+ * integration testing. Remove alongside authApi.loginWithTestCredentials
+ * in AuthContext, the Login page's test-login UI, and the backend route
+ * once testing is complete.
+ *
+ * @param {Object} payload
+ * @param {string} payload.username
+ * @param {string} payload.password
+ * @returns {Promise<Object>} Contains { token, user, isNewUser } on success
+ */
+export async function loginWithTestCredentials(payload) {
+    const response = await API.post("/auth/login-test", payload);
+    return response.data;
+}

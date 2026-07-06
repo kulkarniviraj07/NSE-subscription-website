@@ -1,6 +1,9 @@
 import { createContext, useState, useEffect } from "react";
 import { getToken, getUser, setToken, setUser, clearAuth } from "../utils/storage";
-import { verifyToken as verifyTokenApi } from "../api/auth.api";
+import {
+    verifyToken as verifyTokenApi,
+    loginWithTestCredentials as loginWithTestCredentialsApi,
+} from "../api/auth.api";
 import { setupInterceptors } from "../api/interceptor";
 
 export const AuthContext = createContext(null);
@@ -176,6 +179,32 @@ export function AuthProvider({ children }) {
     }
 
     /**
+     * TEMPORARY — Razorpay test-mode login (username/password).
+     * Bypasses the MSG91/OTP widget entirely. Only the one reserved test
+     * account (created server-side) can succeed here; every successful
+     * call is treated as a brand-new account (isNewUser stays true), so
+     * the tester is routed through onboarding (/whatsapp-welcome) instead
+     * of straight to /dashboard, same as any other first-time user.
+     *
+     * Remove this function, its Login-page UI, authApi.loginWithTestCredentials,
+     * and the backend /auth/login-test route once Razorpay's testing is done.
+     *
+     * @param {string} username
+     * @param {string} password
+     */
+    async function loginWithTestCredentials(username, password) {
+        const data = await loginWithTestCredentialsApi({ username, password });
+        if (data.token) {
+            setToken(data.token);
+            setUser(data.user);
+            setUserState(data.user);
+            setIsNewUser(!!data.isNewUser);
+            setIsAuthenticated(true);
+        }
+        return data;
+    }
+
+    /**
      * Log out user and clear local storage.
      */
     function logout() {
@@ -192,6 +221,7 @@ export function AuthProvider({ children }) {
         loading,
         login,
         verifyLogin,
+        loginWithTestCredentials,
         register,
         verifyRegister,
         logout,

@@ -15,11 +15,42 @@ import { MarketChartBackground } from "../../components/common/MarketChartBackgr
  *                   which resolves the promise in AuthContext → backend verifyToken
  */
 export function Login() {
-    const { login, verifyLogin } = useAuth();
+    const { login, verifyLogin, loginWithTestCredentials } = useAuth();
     const navigate = useNavigate();
 
     /** "MOBILE" | "OTP" */
     const [step, setStep] = useState("MOBILE");
+
+    // ── TEMPORARY — Razorpay test-mode login (username/password) ──────────
+    // Only shown/used for Razorpay's integration testing. Remove this whole
+    // block (state + handler + the JSX toggle/form below) along with
+    // AuthContext.loginWithTestCredentials and the backend /auth/login-test
+    // route once Razorpay's testing is complete.
+    const [showTestLogin, setShowTestLogin] = useState(false);
+    const [testUsername, setTestUsername] = useState("");
+    const [testPassword, setTestPassword] = useState("");
+    const [testLoading, setTestLoading] = useState(false);
+    const [testError, setTestError] = useState("");
+
+    const handleTestLogin = async (e) => {
+        e.preventDefault();
+        setTestError("");
+        try {
+            setTestLoading(true);
+            await loginWithTestCredentials(testUsername, testPassword);
+            // No navigate() call needed — PublicRoute redirects automatically
+            // once isAuthenticated flips true (see AppRoutes.jsx).
+        } catch (err) {
+            setTestError(
+                err?.response?.data?.message ||
+                err?.message ||
+                "Invalid username or password."
+            );
+        } finally {
+            setTestLoading(false);
+        }
+    };
+    // ── end temporary block ────────────────────────────────────────────────
 
     const [mobile, setMobile]               = useState("");
     const [otp, setOtp]                     = useState("");
@@ -326,6 +357,60 @@ export function Login() {
                                 Register Here
                             </Link>
                         </div>
+
+                        {/*
+                            TEMPORARY — Razorpay test-mode login (username/password).
+                            Only for Razorpay's integration testing; remove this whole
+                            block once testing is complete (see AuthContext.jsx and
+                            backend authController.js / authRoutes.js).
+                        */}
+                        <div className="mt-4 text-center">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowTestLogin((v) => !v);
+                                    setTestError("");
+                                }}
+                                className="text-[11px] text-brand-slate/70 hover:text-brand-slate underline"
+                            >
+                                {showTestLogin ? "Hide test login" : "Partner testing login"}
+                            </button>
+
+                            {showTestLogin && (
+                                <form onSubmit={handleTestLogin} className="mt-4 space-y-3 text-left">
+                                    <Input
+                                        label="Username"
+                                        value={testUsername}
+                                        onChange={(e) => {
+                                            setTestUsername(e.target.value);
+                                            setTestError("");
+                                        }}
+                                        placeholder="Username"
+                                        type="text"
+                                        error={testError}
+                                    />
+                                    <Input
+                                        label="Password"
+                                        value={testPassword}
+                                        onChange={(e) => {
+                                            setTestPassword(e.target.value);
+                                            setTestError("");
+                                        }}
+                                        placeholder="Password"
+                                        type="password"
+                                    />
+                                    <Button
+                                        type="submit"
+                                        loading={testLoading}
+                                        disabled={testLoading}
+                                        className="w-full"
+                                    >
+                                        Test Login
+                                    </Button>
+                                </form>
+                            )}
+                        </div>
+                        {/* ── end temporary block ── */}
                     </div>
                 </div>
             </div>
