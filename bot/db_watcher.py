@@ -481,20 +481,12 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
     window_is_open      = bot_db.window_open(phone)
     cap_templates       = bool(getattr(config, "ONE_TEMPLATE_PER_WINDOW", False))
 
-    # ── TEXT-ONLY delivery (EquiSense style, link only, no attachment) ───────
-    # When enabled we push the message as PLAIN TEXT with the 📎 download link —
-    # no document/template attachment. Meta only allows free-form text INSIDE
-    # the 24-hour window, so a closed window means we QUEUE the filing and it
-    # goes out the moment the user next messages (which reopens the window).
-    if getattr(config, "SEND_AS_TEXT", True):
-        if not window_is_open or force_template:
-            bot_db.queue_pending_filing(
-                phone, file_key, file_path, caption, filing_id=filing_id,
-                error="text-only: window closed, queued for re-engagement"
-            )
-            print(f"⏳ Window closed for {phone} — queued {file_key} "
-                  f"(text-only; delivers when the user next messages).")
-            return False
+    # ── TEXT delivery for OPEN windows (EquiSense style, link only) ──────────
+    # INSIDE the 24h window we push the EquiSense text message with the 📎 link
+    # (no attachment). OUTSIDE the window we DO NOT touch it here — we fall
+    # through to the approved template + document path below, exactly as before,
+    # so silent subscribers keep receiving their filings as template+PDF.
+    if getattr(config, "SEND_AS_TEXT", True) and window_is_open and not force_template:
         try:
             wamid = whatsapp.send_text(phone, caption)
             bot_db.mark_filing_sent(phone, file_key)
@@ -505,19 +497,24 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             whatsapp._safe_print(f"[OK] Sent text alert to {phone} for {file_key}")
             return True
         except WhatsAppError as e:
-            bot_db.queue_pending_filing(
-                phone, file_key, file_path, caption, filing_id=filing_id,
-                error=f"text send failed: {e}"
-            )
-            if not e.is_reengagement:
+            if e.is_reengagement:
+                # Our window read was stale — the window is actually closed.
+                # Fall through to the template + document path below.
+                print(f"⏳ Window actually closed for {phone} — using template "
+                      f"(document) for {file_key}.")
+            else:
                 print(f"❌ Text send failed for {phone} ({file_key}): {e}")
-            return False
+                bot_db.queue_pending_filing(
+                    phone, file_key, file_path, caption, filing_id=filing_id,
+                    error=f"text send failed: {e}"
+                )
+                return False
         except Exception as e:
+            print(f"❌ Unexpected text send error for {phone} ({file_key}): {e}")
             bot_db.queue_pending_filing(
                 phone, file_key, file_path, caption, filing_id=filing_id,
                 error=f"text send error: {e}"
             )
-            print(f"❌ Unexpected text send error for {phone} ({file_key}): {e}")
             return False
 
     # If this filing is template-bound (window closed, or an explicit template
