@@ -232,8 +232,109 @@ async function verifyToken(
 
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// TEMPORARY — Razorpay test-mode login (username/password)
+//
+// Razorpay asked for a way to log in without going through SMS OTP so they
+// can run their integration testing. This is NOT meant to replace the
+// mobile+OTP flow for real users — it only exists so Razorpay's tester can
+// get in. Remove `loginWithTestCredentials`, its route in authRoutes.js,
+// and the frontend hook for it once Razorpay's testing is complete.
+//
+// The credentials are read from env vars so they can be rotated/removed
+// without a code change; the literal values below are just the agreed
+// fallback so this works even if the env vars are not set.
+// ─────────────────────────────────────────────────────────────────────────
+
+const TEMP_TEST_USERNAME =
+    process.env.TEMP_RAZORPAY_TEST_USERNAME || "testuser123razorpay";
+
+const TEMP_TEST_PASSWORD =
+    process.env.TEMP_RAZORPAY_TEST_PASSWORD || "razorpay@test123";
+
+// Reserved, non-numeric identifier stored in the `mobile` column for this
+// single test account. It can never collide with a real user's row because
+// normalizeMobile() (used by the real OTP flow) only ever produces 10-digit
+// numeric strings.
+const TEMP_TEST_MOBILE = "TESTRZP0001";
+
+/**
+ * POST /api/auth/login-test
+ *
+ * TEMPORARY username/password login used only for Razorpay's integration
+ * testing. On every successful call the reserved test account is wiped and
+ * re-created from scratch, so the tester always lands on a clean, brand-new
+ * account — same as any other first-time signup (isNewUser stays true, so
+ * the frontend sends them through onboarding instead of straight to the
+ * dashboard). It does not read, modify, or affect any real user who logs in
+ * with their mobile number.
+ *
+ * Body:
+ *   - username {string}
+ *   - password {string}
+ */
+async function loginWithTestCredentials(
+    req,
+    res
+) {
+
+    try {
+
+        const { username, password } = req.body || {};
+
+        if (
+            username !== TEMP_TEST_USERNAME ||
+            password !== TEMP_TEST_PASSWORD
+        ) {
+
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "Invalid username or password",
+                });
+
+        }
+
+        // Always start this account fresh — delete any prior row first.
+        await userRepository.deleteByMobile(TEMP_TEST_MOBILE);
+
+        const user =
+            await userRepository.create(
+                "Razorpay Test User",
+                TEMP_TEST_MOBILE
+            );
+
+        const token =
+            jwtUtil.generateToken(user);
+
+        return res.json({
+            success: true,
+            message: "Verification successful",
+            token,
+            user,
+            isNewUser: true,
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        return res
+            .status(500)
+            .json({
+                success: false,
+                message: "Login failed",
+            });
+
+    }
+
+}
+
 module.exports = {
 
     verifyToken,
+
+    loginWithTestCredentials,
 
 };
