@@ -86,11 +86,13 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 #        You are receiving this stock update per your request on https://equityalerts.in/portal
 #        Disclaimer: https://equityalerts.in/portal/disclaimer
 #
-#        ━━━━━━━━━━━━━━
-#        🚀 PureFrame Labs — custom bots, dashboards & data tools: https://pureframelabs.in/
-#
 #      {{1}}=company, {{2}}=event, {{3}}=summary, {{4}}=download link.
-#   3. Submit for approval, then set the exact name + language code below.
+#   3. Keep it UTILITY: do NOT put the PureFrame Labs ad (or any promo) in this
+#      template — promotional content forces Meta to classify it as Marketing
+#      (stricter per-user limits, worse deliverability to silent subscribers).
+#      The ad still rides on the free-form TEXT alert (output.py) sent to users
+#      inside the 24h window; only this closed-window template omits it.
+#   4. Submit for approval as "Utility", then set the exact name + language below.
 #
 # Leave TEMPLATE_NAME = "" to disable the fallback (filings will instead be
 # queued and delivered the next time the user messages the bot).
