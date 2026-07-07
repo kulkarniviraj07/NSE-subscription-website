@@ -70,15 +70,15 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 #   2. Body — put the SPACING (blank lines) in the fixed text and use one
 #      single-line variable per section, so Meta keeps the layout (it strips
 #      newlines out of variables, so a single {{1}} summary becomes a wall of
-#      text). Approved body should be:
+#      text). Approved body should be (variables PLAIN — no emoji before them):
 #
 #        📢 *PureFrame Stock Bits!!*
 #
-#        🏢 {{1}}
+#        {{1}}
 #
-#        ⚡ {{2}}
+#        {{2}}
 #
-#        🤖 {{3}}
+#        {{3}}
 #
 #        🔗 Download filing:
 #        {{4}}
@@ -87,6 +87,10 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 #        Disclaimer: https://equityalerts.in/portal/disclaimer
 #
 #      {{1}}=company, {{2}}=event, {{3}}=summary, {{4}}=download link.
+#      The 🏢/⚡/🤖 section emojis are added by the CODE into the variable values
+#      (db_watcher._try_send), NOT the template — so the fixed text stays plain
+#      and the emojis still render. Do not repeat them before {{1}}/{{2}}/{{3}}
+#      in the template or they'll show twice.
 #   3. Keep it UTILITY: do NOT put the PureFrame Labs ad (or any promo) in this
 #      template — promotional content forces Meta to classify it as Marketing
 #      (stricter per-user limits, worse deliverability to silent subscribers).
