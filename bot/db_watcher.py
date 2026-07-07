@@ -465,6 +465,42 @@ def _split_download_link(caption: str):
     return caption, url
 
 
+def _parse_stock_bits_parts(caption: str):
+    """
+    Split an assembled Stock Bits caption into its dynamic pieces
+    (company, event, body, download_url) for the SPACED text template.
+
+    Meta strips newlines out of a template *variable*, so cramming the whole
+    multi-line summary into one {{1}} produces a wall of text. Instead the
+    approved template carries the blank-line spacing as FIXED text and takes one
+    single-line variable per section — this pulls those sections back out:
+
+        {{1}} = company        (🏢 line)
+        {{2}} = event          (⚡ line)
+        {{3}} = summary body   (🤖 line, flattened to one line, #Impact dropped)
+        {{4}} = download link   (📎 line)
+    """
+    text = caption or ""
+
+    def _after(marker: str) -> str:
+        m = re.search(marker + r"\s*(.+)", text)
+        return m.group(1).strip() if m else ""
+
+    company = _after("🏢")
+    event   = _after("⚡")
+
+    body = ""
+    m = re.search(r"🤖\s*(.+?)(?:\n\s*🔗|\n\s*📎|\n\s*You are receiving|$)",
+                  text, re.DOTALL)
+    if m:
+        body = re.sub(r"\s+", " ", m.group(1)).strip()
+        body = re.sub(r"\s*#\w*Impact\s*$", "", body).strip()   # drop trailing #HighImpact
+
+    um  = re.search(r"📎[^\n]*?(https?://\S+)", text)
+    url = um.group(1) if um else ""
+    return company, event, body, url
+
+
 def _try_send(phone, file_path, caption, file_key, filing_id=None,
               template_params=None, force_template=False):
     """
@@ -556,9 +592,15 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             print(f"🔕 Template already sent to {phone} this window — queued {file_key}.")
             return False
         try:
-            body1, url = _split_download_link(caption)
+            # SPACED template: one single-line variable per section so the
+            # template's own fixed newlines provide the spacing (Meta strips
+            # newlines from a variable). Body {{1..4}} = company, event,
+            # summary, download link.
+            company, event, body, url = _parse_stock_bits_parts(caption)
             url = url or "https://equityalerts.in"
-            wamid = whatsapp.send_text_template(phone, [body1, url])
+            wamid = whatsapp.send_text_template(
+                phone, [company, event, body, url]
+            )
             bot_db.mark_batch_template_sent(phone)
             bot_db.mark_filing_sent(phone, file_key)
             bot_db.remove_pending_filing(phone, file_key)
