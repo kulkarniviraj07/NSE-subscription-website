@@ -8,7 +8,7 @@
 #     the WhatsApp API confirms delivery (was the same 131047 bug).
 # ============================================================
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 import sys
 import os
 import config
@@ -430,6 +430,25 @@ def handle_message(phone: str, text: str):
         f"👉 {PORTAL_URL}\n\n"
         "Type *help* for more info."
     )
+
+
+# ── Branded short download links (/t/<code>) ─────────────────
+
+@app.route("/t/<code>")
+def short_link_redirect(code):
+    """
+    Resolve a branded short code to the real NSE PDF URL and 302-redirect.
+    This is what lets alerts show https://equityalerts.in/t/<code> instead of
+    the long nseindia.com link. Counts clicks for basic analytics.
+    """
+    url = db.get_short_link(code)
+    if not url:
+        return "Link not found or expired.", 404
+    try:
+        db.increment_short_link_click(code)
+    except Exception as e:
+        print(f"⚠️  Could not record click for {code}: {e}")
+    return redirect(url, code=302)
 
 
 # ── Serve React portal (static files) ────────────────────────
