@@ -106,6 +106,13 @@ SEND_AS_TEXT   = os.environ.get("SEND_AS_TEXT", "True").lower() in ("true", "1",
 # PDF. Off by default now that we deliver text + link.
 SEND_AS_CARD   = os.environ.get("SEND_AS_CARD", "False").lower() in ("true", "1", "yes")
 
+# Public base for branded short download links, e.g. https://equityalerts.in/t/<code>.
+# Instead of the long raw nseindia.com URL, the alert shows a link under our own
+# domain that 302-redirects to the real PDF (served by the bot's /t/<code> route,
+# see Bot.py). Must be the public origin that reaches this bot. Empty = use the
+# raw NSE URL (no shortening).
+SHORTLINK_BASE = os.environ.get("SHORTLINK_BASE", "https://equityalerts.in").rstrip("/")
+
 # ── Step 6: 24h-window pre-close re-engagement reminder ──────
 # A single INTERACTIVE message sent shortly BEFORE a user's 24-hour service
 # window closes. Goals:

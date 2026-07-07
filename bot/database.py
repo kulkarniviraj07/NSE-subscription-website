@@ -149,9 +149,59 @@ def init_db():
             )
         """)
 
+        # Branded short links: code -> real (NSE) download URL, so the alert can
+        # show https://equityalerts.in/t/<code> instead of the long nseindia URL.
+        # The bot's /t/<code> route resolves the code and 302-redirects.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS short_links (
+                code       TEXT PRIMARY KEY,
+                url        TEXT NOT NULL,
+                clicks     INTEGER  DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         conn.commit()
         conn.close()
     print("✅ Bot SQLite database ready.")
+
+
+# ── Branded short download links (/t/<code> redirect) ─────────
+
+def save_short_link(code: str, url: str):
+    """Store a code -> URL mapping (idempotent — same code keeps its URL)."""
+    if not code or not url:
+        return
+    with _lock:
+        conn = get_conn()
+        conn.execute(
+            "INSERT OR IGNORE INTO short_links (code, url) VALUES (?, ?)",
+            (code, url)
+        )
+        conn.commit()
+        conn.close()
+
+
+def get_short_link(code: str):
+    """Return the real URL for a short code, or None."""
+    with _lock:
+        conn = get_conn()
+        row  = conn.execute(
+            "SELECT url FROM short_links WHERE code=?", (code,)
+        ).fetchone()
+        conn.close()
+        return row["url"] if row else None
+
+
+def increment_short_link_click(code: str):
+    """Bump the click counter for a short code (best-effort analytics)."""
+    with _lock:
+        conn = get_conn()
+        conn.execute(
+            "UPDATE short_links SET clicks = clicks + 1 WHERE code=?", (code,)
+        )
+        conn.commit()
+        conn.close()
 
 
 # ── User state (tracks conversation step) ────────────────────

@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import time
+import hashlib
 import threading
 import psycopg2
 import psycopg2.extras
@@ -392,9 +393,45 @@ _caption_pool = ThreadPoolExecutor(
 )
 
 
+# base62 alphabet for compact short codes (like equisense.ai/t/XWFNMh).
+_B62_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _b62(data: bytes) -> str:
+    n = int.from_bytes(data, "big")
+    s = ""
+    while n:
+        n, r = divmod(n, 62)
+        s = _B62_ALPHABET[r] + s
+    return s or "0"
+
+
+def _shorten_download_url(url: str) -> str:
+    """
+    Turn a raw NSE PDF URL into a branded short link under our own domain,
+    e.g. https://equityalerts.in/t/<code>, that 302-redirects to the real PDF
+    (see Bot.py /t/<code>). Deterministic (same URL → same code, so the table
+    self-dedupes). Falls back to the raw URL if shortening is disabled or fails.
+    """
+    if not url or not url.startswith("http"):
+        return url
+    base = getattr(config, "SHORTLINK_BASE", "") or ""
+    if not base:
+        return url
+    try:
+        code = _b62(hashlib.sha1(url.encode("utf-8")).digest())[:7]
+        bot_db.save_short_link(code, url)
+        return f"{base}/t/{code}"
+    except Exception as e:
+        whatsapp._safe_print(f"⚠️  Short-link create failed ({e}) — using raw URL.")
+        return url
+
+
 def _full_caption(company, symbol, filing_type, file_path, raw_time,
                   download_url="") -> str:
     """One-message caption = EquiSense Stock Bits alert (or basic fallback)."""
+    # Show a branded short link under our own domain instead of the raw NSE URL.
+    download_url = _shorten_download_url(download_url)
     fallback = (
         f"📄 *{company}* — {filing_type}\n"
         f"🏦 Symbol: {symbol}"
