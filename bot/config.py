@@ -66,18 +66,37 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 # makes the bot deliver filings to silent subscribers.
 #
 # Setup (Meta WhatsApp Manager → Message Templates):
-#   1. Create a template, category "Utility".
-#   2. Header: type = Document.
-#   3. Body: a single {{1}} variable — the bot fills it with the AI SUMMARY of
-#      the filing, so silent subscribers get the summary + PDF in one message.
-#      (e.g. body text: "{{1}}"  — or a short prefix followed by {{1}}.)
-#   4. Submit for approval, then put the exact name + language code below.
+#   1. Create a template, category "Utility", with NO header (text-only).
+#   2. Body — put the SPACING (blank lines) in the fixed text and use one
+#      single-line variable per section, so Meta keeps the layout (it strips
+#      newlines out of variables, so a single {{1}} summary becomes a wall of
+#      text). Approved body should be:
+#
+#        📢 *PureFrame Stock Bits!!*
+#
+#        🏢 {{1}}
+#
+#        ⚡ {{2}}
+#
+#        🤖 {{3}}
+#
+#        🔗 Download filing:
+#        {{4}}
+#
+#        You are receiving this stock update per your request on https://equityalerts.in/portal
+#        Disclaimer: https://equityalerts.in/portal/disclaimer
+#
+#        ━━━━━━━━━━━━━━
+#        🚀 PureFrame Labs — custom bots, dashboards & data tools: https://pureframelabs.in/
+#
+#      {{1}}=company, {{2}}=event, {{3}}=summary, {{4}}=download link.
+#   3. Submit for approval, then set the exact name + language code below.
 #
 # Leave TEMPLATE_NAME = "" to disable the fallback (filings will instead be
 # queued and delivered the next time the user messages the bot).
-TEMPLATE_NAME             = "nse_bot"        # e.g. "nse_filing_alert" (must be APPROVED)
-TEMPLATE_LANG             = "en"      # must match the template's language code ("en", "en_US", ...)
-TEMPLATE_BODY_PARAM_COUNT = 2         # text-only template body: {{1}} = summary, {{2}} = download link
+TEMPLATE_NAME             = os.environ.get("TEMPLATE_NAME", "nse_bot")   # must be APPROVED
+TEMPLATE_LANG             = os.environ.get("TEMPLATE_LANG", "en")   # template language code
+TEMPLATE_BODY_PARAM_COUNT = 4         # spaced text template: {{1}}company {{2}}event {{3}}summary {{4}}link
 # The old "Full Summary" quick-reply button has been retired — nobody tapped it,
 # and the summary now arrives inline in the template body instead. Keep this
 # False. (To remove the button visually too, delete it from the approved

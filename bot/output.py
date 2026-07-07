@@ -297,6 +297,13 @@ PUREFRAME_AD = (
     "For any query or product, contact us: *8459625508*"
 )
 
+# PureFrame Labs website advertisement, shown as a small footer under each alert.
+PUREFRAME_LABS_AD = (
+    "━━━━━━━━━━━━━━\n"
+    "🚀 *PureFrame Labs* — we build custom bots, dashboards & data tools.\n"
+    "🔗 https://pureframelabs.in/"
+)
+
 
 BRAND_NAME = "PureFrame"
 
@@ -382,7 +389,9 @@ def _build_stock_bits_message(
         lines.append("")
 
     lines.append(f"You are receiving this stock update per your request on {brand_url}")
-    lines.append(f"Disclaimer: {brand_url}")
+    lines.append(f"Disclaimer: {brand_url}/disclaimer")
+    lines.append("")
+    lines.append(PUREFRAME_LABS_AD)
     return "\n".join(lines)
 
 
