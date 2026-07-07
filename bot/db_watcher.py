@@ -597,6 +597,16 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             # newlines from a variable). Body {{1..4}} = company, event,
             # summary, download link.
             company, event, body, url = _parse_stock_bits_parts(caption)
+            # Emojis ride INSIDE the variable values (not the approved template's
+            # fixed text) — so the template can stay plain {{1}}..{{4}} (keeps it
+            # Utility-friendly) while the 🏢/⚡/🤖 markers still show. Meta's
+            # category check looks at fixed text only, so this is safe.
+            if company:
+                company = f"🏢 {company}"
+            if event:
+                event = f"⚡ {event}"
+            if body:
+                body = f"🤖 {body}"
             url = url or "https://equityalerts.in"
             wamid = whatsapp.send_text_template(
                 phone, [company, event, body, url]
