@@ -493,16 +493,18 @@ def _split_download_link(caption: str):
 def _parse_stock_bits_parts(caption: str):
     """
     Split an assembled caption into its dynamic pieces for the SPACED template:
-    (company, event, body, download_url, filed_time).
+    (title, company, event, body, download_url, filed_time).
 
     Meta strips newlines out of a template *variable*, so the approved template
     carries the blank-line spacing as FIXED text and takes one single-line
-    variable per section — this pulls those sections back out:
+    variable per section — this pulls those sections back out (the caller maps
+    them to the template variables, adding emojis/time):
 
-        {{1}} = company        (🏢 / 💼 line)
-        {{2}} = event          (⚡ line, or "<period> Results Out")
-        {{3}} = summary body   (🤖 line, or flattened metrics for results)
-        {{4}} = download link   (📎 / 🤖 Key Insights link)
+        title   = the 📢 header line   → {{1}}
+        company = 🏢 / 💼 line          → {{2}}
+        event   = ⚡ line / "<period> Results Out" (+filed time) → {{3}}
+        body    = 🤖 summary / flattened metrics → {{4}}
+        url     = 📎 / 🤖 Key Insights link → {{5}}
 
     Handles BOTH the 'Stock Bits' (🏢/⚡/🤖 summary) and 'Result Bits'
     (💼 company | period / 📊 metrics) layouts. `filed_time` is the exchange
@@ -516,6 +518,11 @@ def _parse_stock_bits_parts(caption: str):
 
     fm    = re.search(r"🕒[^\n]*?:\s*(.+)", text)
     filed = fm.group(1).strip() if fm else ""
+    # Branded title (📢 *PureFrame Stock/Result Bits!!*) — carried as a VARIABLE
+    # value, not the template's fixed text, so it can't push the template into
+    # the Marketing category.
+    tm    = re.search(r"(📢[^\n]*)", text)
+    title = tm.group(1).strip() if tm else ""
 
     if "💼" in text and "📊" in text:
         # ── Result Bits (financial results) ──────────────────────────────
@@ -530,7 +537,7 @@ def _parse_stock_bits_parts(caption: str):
         um = (re.search(r"🤖 Key Insights:\s*\n?\s*(https?://\S+)", text)
               or re.search(r"(https?://\S+)", text))
         url = um.group(1) if um else ""
-        return company, event, body, url, filed
+        return title, company, event, body, url, filed
 
     # ── Stock Bits (default) ─────────────────────────────────────────────
     company = _after("🏢")
@@ -543,7 +550,7 @@ def _parse_stock_bits_parts(caption: str):
         body = re.sub(r"\s*#\w*Impact\s*$", "", body).strip()   # drop trailing #HighImpact
     um  = re.search(r"📎[^\n]*?(https?://\S+)", text)
     url = um.group(1) if um else ""
-    return company, event, body, url, filed
+    return title, company, event, body, url, filed
 
 
 def _try_send(phone, file_path, caption, file_key, filing_id=None,
@@ -641,11 +648,13 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             # template's own fixed newlines provide the spacing (Meta strips
             # newlines from a variable). Body {{1..4}} = company, event,
             # summary, download link.
-            company, event, body, url, filed = _parse_stock_bits_parts(caption)
-            # Emojis ride INSIDE the variable values (not the approved template's
-            # fixed text) — so the template can stay plain {{1}}..{{4}} (keeps it
-            # Utility-friendly) while the 🏢/⚡/🤖 markers still show. Meta's
-            # category check looks at fixed text only, so this is safe.
+            title, company, event, body, url, filed = _parse_stock_bits_parts(caption)
+            # The branded TITLE and the 🏢/⚡/🤖 emojis ride INSIDE the variable
+            # values (not the approved template's fixed text) — so the template's
+            # fixed text stays neutral/Utility while the "📢 PureFrame … Bits!!"
+            # header and markers still show. Meta's category check looks at the
+            # fixed text only, so this is safe.
+            title = title or "📢 *PureFrame Stock Bits!!*"
             if company:
                 company = f"🏢 {company}"
             # The exchange time has no variable of its own (no new template), so it
@@ -657,8 +666,9 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             if body:
                 body = f"🤖 {body}"
             url = url or "https://equityalerts.in"
+            # {{1}}=title, {{2}}=company, {{3}}=event(+time), {{4}}=summary, {{5}}=link
             wamid = whatsapp.send_text_template(
-                phone, [company, event, body, url]
+                phone, [title, company, event, body, url]
             )
             bot_db.mark_batch_template_sent(phone)
             bot_db.mark_filing_sent(phone, file_key)
