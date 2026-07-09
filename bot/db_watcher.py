@@ -338,6 +338,57 @@ def _format_exchange_time(raw) -> str:
     return f"{s} IST"
 
 
+# Bump this whenever the generated message LAYOUT changes (output.py). Cached
+# summaries tagged with an older version are regenerated instead of re-sent, so
+# a format change actually takes effect on filings summarised before the deploy.
+#   1 = legacy Stock-Bits-only layout
+#   2 = Stock Bits + structured Result Bits (metrics table)
+SUMMARY_FORMAT_VERSION = 2
+
+
+def _compact_metric_lines(caption: str, slots: int = 3) -> list:
+    """
+    Turn the Result Bits metrics table into ONE COMPACT LINE PER METRIC, for the
+    dedicated results template (each template variable must be a single line, so
+    the 3-period breakdown can't survive there — the free-form text alert keeps
+    the full table).
+
+        "Revenue from operations (REV): ₹72,275 Cr · 🟢 +2.03% QoQ, 🟢 +13.00% YoY"
+
+    Always returns exactly `slots` non-empty strings: unused slots become "—"
+    (Meta rejects an empty variable) and any metrics beyond `slots` are merged
+    into the last line.
+    """
+    m = re.search(r"📊 Key Metrics\s*(.+?)(?:\n\s*🤖|\n\s*You are receiving|$)",
+                  caption or "", re.DOTALL)
+    lines = []
+    if m:
+        for chunk in re.split(r"\n\s*\n", m.group(1).strip()):
+            rows = [r.strip() for r in chunk.split("\n") if r.strip()]
+            if not rows:
+                continue
+            name, latest, trend = rows[0].rstrip(":"), "", ""
+            for r in rows[1:]:
+                if r.startswith("🗓️") and not latest:
+                    latest = r.split(":", 1)[1].strip() if ":" in r else ""
+                elif "QoQ" in r or "YoY" in r:
+                    trend = r
+            seg = name
+            if latest:
+                seg += f": {latest}"
+            if trend:
+                seg += f" · {trend}"
+            lines.append(seg)
+
+    if not lines:
+        return ["—"] * slots
+    if len(lines) > slots:                       # merge the overflow into the last slot
+        lines = lines[:slots - 1] + ["  •  ".join(lines[slots - 1:])]
+    while len(lines) < slots:                    # pad — Meta rejects empty variables
+        lines.append("—")
+    return lines
+
+
 def _insert_filed_time(body: str, time_str: str) -> str:
     """
     Insert a '🕒 Filed on exchange: <time>' line right after the company line
@@ -395,14 +446,17 @@ def _build_caption(file_path, fallback_caption, company=None,
     footer + download link at the end of a text message aren't truncated away.
     """
     file_key = os.path.basename(file_path).strip()
-    cached   = bot_db.get_filing_summary(file_key)
+    # Only reuse a cached summary that was produced by the CURRENT layout —
+    # otherwise a filing summarised before a format change would be re-sent in
+    # the old layout forever (this is why results kept arriving as "Stock Bits").
+    cached   = bot_db.get_filing_summary(file_key, SUMMARY_FORMAT_VERSION)
     if cached:
         return cached
 
     ai_summary = generate_pdf_summary(file_path, company, filing_type, download_url)
     if ai_summary:
         trimmed = ai_summary[:3997] + "..." if len(ai_summary) > 4000 else ai_summary
-        bot_db.save_filing_summary(file_key, trimmed)
+        bot_db.save_filing_summary(file_key, trimmed, SUMMARY_FORMAT_VERSION)
         return trimmed
     return fallback_caption
 
@@ -686,6 +740,35 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             # newlines from a variable). Body {{1..4}} = company, event,
             # summary, download link.
             title, company, event, body, url, filed = _parse_stock_bits_parts(caption)
+
+            # ── RESULTS → dedicated metrics-table template (if approved) ──────
+            # A metrics table can't render in the Stock Bits template (one line
+            # per variable). When TEMPLATE_RESULT_NAME is configured, results go
+            # to their own template with one metric per line. Until then they
+            # fall through to the Stock Bits template below (current behaviour).
+            result_tpl = getattr(config, "TEMPLATE_RESULT_NAME", "") or ""
+            is_result  = "💼" in (caption or "") and "📊" in (caption or "")
+            if is_result and result_tpl:
+                slots   = int(getattr(config, "TEMPLATE_RESULT_METRIC_SLOTS", 3))
+                metrics = _compact_metric_lines(caption, slots)
+                params  = [
+                    title or "📢 *PureFrame Result Bits!!*",
+                    f"💼 {company} | {event}" if event else f"💼 {company}",
+                    f"🕒 Filed on exchange: {filed}" if filed else "🕒 Filed on exchange: n/a",
+                    *metrics,
+                    url or "https://equityalerts.in",
+                ]
+                wamid = whatsapp.send_text_template(phone, params,
+                                                    template_name=result_tpl)
+                bot_db.mark_batch_template_sent(phone)
+                bot_db.mark_filing_sent(phone, file_key)
+                bot_db.remove_pending_filing(phone, file_key)
+                if wamid:
+                    bot_db.store_wamid(wamid, phone, file_key, file_path, caption,
+                                       filing_id=filing_id, channel="template")
+                whatsapp._safe_print(f"[OK] Sent RESULT template to {phone} for {file_key}")
+                return True
+
             # The branded TITLE and the 🏢/⚡/🤖 emojis ride INSIDE the variable
             # values (not the approved template's fixed text) — so the template's
             # fixed text stays neutral/Utility while the "📢 PureFrame … Bits!!"

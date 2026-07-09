@@ -96,15 +96,17 @@ def send_text(to: str, message: str) -> str:
 
 # ── Send a TEXT-ONLY template (no media header) ───────────────
 
-def send_text_template(to: str, body_params) -> str:
+def send_text_template(to: str, body_params, template_name: str = None) -> str:
     """
     Deliver an approved TEXT-ONLY template — a template with NO media header,
     only body variables. Valid OUTSIDE the 24-hour window (silent subscribers).
 
-    The template referenced by config.TEMPLATE_NAME must be APPROVED and must
-    have NO header (or the send is rejected). `body_params` fills {{1}}, {{2}},
-    ... in order; each is flattened via _sanitize_template_param() so Meta
-    accepts it (no newlines/tabs/4+ spaces inside a variable). Returns the wamid.
+    The template must be APPROVED and have NO header (or the send is rejected).
+    `template_name` overrides config.TEMPLATE_NAME — used to route quarterly
+    RESULTS filings to their own metrics-table template. `body_params` fills
+    {{1}}, {{2}}, ... in order; each is flattened via _sanitize_template_param()
+    so Meta accepts it (no newlines/tabs/4+ spaces inside a variable).
+    Returns the wamid.
     """
     params = [
         {"type": "text", "text": _sanitize_template_param(p)}
@@ -119,7 +121,7 @@ def send_text_template(to: str, body_params) -> str:
         "to": to,
         "type": "template",
         "template": {
-            "name": config.TEMPLATE_NAME,
+            "name": template_name or config.TEMPLATE_NAME,
             "language": {"code": getattr(config, "TEMPLATE_LANG", "en")},
             "components": components,
         },
