@@ -105,6 +105,41 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 TEMPLATE_NAME             = os.environ.get("TEMPLATE_NAME", "nse_bot")   # must be APPROVED
 TEMPLATE_LANG             = os.environ.get("TEMPLATE_LANG", "en")   # template language code
 TEMPLATE_BODY_PARAM_COUNT = 5         # {{1}}title {{2}}company {{3}}event+time {{4}}summary {{5}}link
+
+# ── Dedicated template for quarterly/annual RESULTS filings ──────────────
+# A metrics TABLE cannot render inside the Stock Bits template: every template
+# variable must be a single line, so all the metrics collapse into one blob.
+# A separate results template gives each metric its own line.
+#
+# Body to create in WhatsApp Manager (category Utility, NO header):
+#
+#     {{1}}
+#
+#     {{2}}
+#
+#     {{3}}
+#
+#     📊 Key Metrics
+#     {{4}}
+#     {{5}}
+#     {{6}}
+#
+#     🔗 Download filing:
+#     {{7}}
+#
+#     You are receiving this stock update per your request on https://equityalerts.in/portal
+#     Disclaimer: https://equityalerts.in/portal/disclaimer
+#
+#   {{1}}=title ("📢 *PureFrame Result Bits!!*")   {{2}}="💼 <company> | <period> Results Out"
+#   {{3}}="🕒 Filed on exchange: <time>"           {{4}}..{{6}}=one metric per line
+#   {{7}}=download link.
+# Unused metric slots are filled with "—"; extra metrics are merged into the last.
+#
+# Leave EMPTY until the template is APPROVED — results then keep using
+# TEMPLATE_NAME. Set it (e.g. "nse_result_bits") and results switch over on the
+# next restart, no redeploy needed.
+TEMPLATE_RESULT_NAME         = os.environ.get("TEMPLATE_RESULT_NAME", "")
+TEMPLATE_RESULT_METRIC_SLOTS = int(os.environ.get("TEMPLATE_RESULT_METRIC_SLOTS", 3))
 # The old "Full Summary" quick-reply button has been retired — nobody tapped it,
 # and the summary now arrives inline in the template body instead. Keep this
 # False. (To remove the button visually too, delete it from the approved
