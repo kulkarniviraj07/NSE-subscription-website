@@ -70,9 +70,8 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 #   2. Body — put the SPACING (blank lines) in the fixed text and use one
 #      single-line variable per section, so Meta keeps the layout (it strips
 #      newlines out of variables, so a single {{1}} summary becomes a wall of
-#      text). Approved body should be (variables PLAIN — no emoji before them):
-#
-#        📢 *PureFrame Stock Bits!!*
+#      text). Approved body should be (variables PLAIN — no emoji/branding
+#      before them; the fixed text carries NO branded title):
 #
 #        {{1}}
 #
@@ -80,29 +79,32 @@ SUMMARY_MODEL    = os.environ.get("SUMMARY_MODEL", "gpt-4o-mini")
 #
 #        {{3}}
 #
-#        🔗 Download filing:
 #        {{4}}
+#
+#        🔗 Download filing:
+#        {{5}}
 #
 #        You are receiving this stock update per your request on https://equityalerts.in/portal
 #        Disclaimer: https://equityalerts.in/portal/disclaimer
 #
-#      {{1}}=company, {{2}}=event, {{3}}=summary, {{4}}=download link.
-#      The 🏢/⚡/🤖 section emojis are added by the CODE into the variable values
-#      (db_watcher._try_send), NOT the template — so the fixed text stays plain
-#      and the emojis still render. Do not repeat them before {{1}}/{{2}}/{{3}}
-#      in the template or they'll show twice.
-#   3. Keep it UTILITY: do NOT put the PureFrame Labs ad (or any promo) in this
-#      template — promotional content forces Meta to classify it as Marketing
-#      (stricter per-user limits, worse deliverability to silent subscribers).
-#      The ad still rides on the free-form TEXT alert (output.py) sent to users
-#      inside the 24h window; only this closed-window template omits it.
+#      {{1}}=title  ("📢 *PureFrame Stock/Result Bits!!*")
+#      {{2}}=company  {{3}}=event(+filed time)  {{4}}=summary  {{5}}=download link.
+#      The branded TITLE, the 🏢/⚡/🤖 emojis and the exchange time are all added
+#      by the CODE into the variable VALUES (db_watcher._try_send), NOT the
+#      template. Meta classifies on the fixed text only — so keeping the branded
+#      "📢 …Bits!!" header out of the fixed text is what keeps this UTILITY. Do
+#      not put the title/emojis in the fixed text or they'll show twice / flip
+#      it back to Marketing.
+#   3. Keep it UTILITY: no promo in the fixed text either. The PureFrame Labs ad
+#      still rides on the free-form TEXT alert (output.py) inside the 24h window;
+#      only this closed-window template omits it.
 #   4. Submit for approval as "Utility", then set the exact name + language below.
 #
 # Leave TEMPLATE_NAME = "" to disable the fallback (filings will instead be
 # queued and delivered the next time the user messages the bot).
 TEMPLATE_NAME             = os.environ.get("TEMPLATE_NAME", "nse_bot")   # must be APPROVED
 TEMPLATE_LANG             = os.environ.get("TEMPLATE_LANG", "en")   # template language code
-TEMPLATE_BODY_PARAM_COUNT = 4         # spaced text template: {{1}}company {{2}}event {{3}}summary {{4}}link
+TEMPLATE_BODY_PARAM_COUNT = 5         # {{1}}title {{2}}company {{3}}event+time {{4}}summary {{5}}link
 # The old "Full Summary" quick-reply button has been retired — nobody tapped it,
 # and the summary now arrives inline in the template body instead. Keep this
 # False. (To remove the button visually too, delete it from the approved
