@@ -338,6 +338,29 @@ def _format_exchange_time(raw) -> str:
     return f"{s} IST"
 
 
+def _insert_filed_time(body: str, time_str: str) -> str:
+    """
+    Insert a '🕒 Filed on exchange: <time>' line right after the company line
+    (🏢 Stock Bits, or 💼 Result Bits) of a 📢 message. Idempotent. This is how
+    the exchange time is re-added to the new EquiSense-style layout without the
+    generator having to know it.
+    """
+    if not time_str:
+        return body
+    line = f"🕒 Filed on exchange: {time_str}"
+    if line in body:
+        return body
+    out, inserted = [], False
+    for ln in body.split("\n"):
+        out.append(ln)
+        if not inserted and (ln.lstrip().startswith("🏢") or ln.lstrip().startswith("💼")):
+            out.append(line)
+            inserted = True
+    if not inserted:                     # no company line — put it under the title
+        return f"{line}\n{body}"
+    return "\n".join(out)
+
+
 def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
     """
     Build the SINGLE WhatsApp caption: company + exchange filing time, then the
@@ -345,10 +368,12 @@ def _caption_with_time(body: str, company: str, symbol: str, raw_time) -> str:
     and is NEVER stored in the summary cache — so it can't be duplicated on
     re-sends. Capped at WhatsApp's 1024-char caption limit.
     """
-    # The EquiSense-style 'Stock Bits' body is self-contained (it opens with 📢
-    # and already carries the company). Don't prepend the legacy header/time to
-    # it, and allow the full text-message length (WhatsApp text caps at 4096).
+    # The EquiSense-style 'Stock Bits'/'Result Bits' body is self-contained (it
+    # opens with 📢 and already carries the company). Add ONLY the exchange-time
+    # line back into it (after the company line), and allow the full text-message
+    # length (WhatsApp text caps at 4096).
     if body.lstrip().startswith("📢"):
+        body = _insert_filed_time(body, _format_exchange_time(raw_time))
         return body if len(body) <= 4096 else body[:4093].rstrip() + "..."
 
     header = (
@@ -504,18 +529,21 @@ def _split_download_link(caption: str):
 
 def _parse_stock_bits_parts(caption: str):
     """
-    Split an assembled Stock Bits caption into its dynamic pieces
-    (company, event, body, download_url) for the SPACED text template.
+    Split an assembled caption into its dynamic pieces for the SPACED template:
+    (company, event, body, download_url, filed_time).
 
-    Meta strips newlines out of a template *variable*, so cramming the whole
-    multi-line summary into one {{1}} produces a wall of text. Instead the
-    approved template carries the blank-line spacing as FIXED text and takes one
-    single-line variable per section — this pulls those sections back out:
+    Meta strips newlines out of a template *variable*, so the approved template
+    carries the blank-line spacing as FIXED text and takes one single-line
+    variable per section — this pulls those sections back out:
 
-        {{1}} = company        (🏢 line)
-        {{2}} = event          (⚡ line)
-        {{3}} = summary body   (🤖 line, flattened to one line, #Impact dropped)
-        {{4}} = download link   (📎 line)
+        {{1}} = company        (🏢 / 💼 line)
+        {{2}} = event          (⚡ line, or "<period> Results Out")
+        {{3}} = summary body   (🤖 line, or flattened metrics for results)
+        {{4}} = download link   (📎 / 🤖 Key Insights link)
+
+    Handles BOTH the 'Stock Bits' (🏢/⚡/🤖 summary) and 'Result Bits'
+    (💼 company | period / 📊 metrics) layouts. `filed_time` is the exchange
+    time so the caller can keep showing it in the closed-window template too.
     """
     text = caption or ""
 
@@ -523,19 +551,36 @@ def _parse_stock_bits_parts(caption: str):
         m = re.search(marker + r"\s*(.+)", text)
         return m.group(1).strip() if m else ""
 
+    fm    = re.search(r"🕒[^\n]*?:\s*(.+)", text)
+    filed = fm.group(1).strip() if fm else ""
+
+    if "💼" in text and "📊" in text:
+        # ── Result Bits (financial results) ──────────────────────────────
+        cline = _after("💼")
+        if "|" in cline:
+            company, event = (p.strip() for p in cline.split("|", 1))
+        else:
+            company, event = cline, "Results Out"
+        m = re.search(r"📊 Key Metrics\s*(.+?)(?:\n\s*🤖|\n\s*You are receiving|$)",
+                      text, re.DOTALL)
+        body = re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
+        um = (re.search(r"🤖 Key Insights:\s*\n?\s*(https?://\S+)", text)
+              or re.search(r"(https?://\S+)", text))
+        url = um.group(1) if um else ""
+        return company, event, body, url, filed
+
+    # ── Stock Bits (default) ─────────────────────────────────────────────
     company = _after("🏢")
     event   = _after("⚡")
-
     body = ""
     m = re.search(r"🤖\s*(.+?)(?:\n\s*🔗|\n\s*📎|\n\s*You are receiving|$)",
                   text, re.DOTALL)
     if m:
         body = re.sub(r"\s+", " ", m.group(1)).strip()
         body = re.sub(r"\s*#\w*Impact\s*$", "", body).strip()   # drop trailing #HighImpact
-
     um  = re.search(r"📎[^\n]*?(https?://\S+)", text)
     url = um.group(1) if um else ""
-    return company, event, body, url
+    return company, event, body, url, filed
 
 
 def _try_send(phone, file_path, caption, file_key, filing_id=None,
@@ -633,15 +678,19 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
             # template's own fixed newlines provide the spacing (Meta strips
             # newlines from a variable). Body {{1..4}} = company, event,
             # summary, download link.
-            company, event, body, url = _parse_stock_bits_parts(caption)
+            company, event, body, url, filed = _parse_stock_bits_parts(caption)
             # Emojis ride INSIDE the variable values (not the approved template's
             # fixed text) — so the template can stay plain {{1}}..{{4}} (keeps it
             # Utility-friendly) while the 🏢/⚡/🤖 markers still show. Meta's
             # category check looks at fixed text only, so this is safe.
             if company:
                 company = f"🏢 {company}"
-            if event:
-                event = f"⚡ {event}"
+            # The exchange time has no variable of its own (no new template), so it
+            # rides on the event line: "⚡ <event> · 🕒 Filed <time>".
+            event = f"⚡ {event}" if event else ""
+            if filed:
+                event = (f"{event} · 🕒 Filed {filed}" if event
+                         else f"🕒 Filed on exchange: {filed}")
             if body:
                 body = f"🤖 {body}"
             url = url or "https://equityalerts.in"

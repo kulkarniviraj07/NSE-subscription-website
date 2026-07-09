@@ -401,27 +401,48 @@ def format_whatsapp_message(
     short_url: str = "",
     download_url: str = "",
 ) -> str:
-    """Convert a FinancialSummary into the EquiSense-style Stock Bits format."""
-    body_lines = [f"{summary.reporting_period} results are out. Key metrics:"]
+    """
+    STRUCTURED 'Result Bits' message for quarterly/annual results — a proper
+    metrics table (Revenue / PAT / OPM …, three periods each, QoQ & YoY), instead
+    of a flat summary paragraph. Layout:
+
+        📢 *PureFrame Result Bits!!*
+
+        💼 <company> | <period> Results Out
+
+        📊 Key Metrics
+
+        Revenue (REV):
+        🗓️ Mar 2026: ₹205.55 Cr
+        ...
+        🚀 +25.38% QoQ, 🚀 +31.47% YoY
+
+        🤖 Key Insights:
+         <link>
+
+        You are receiving ...
+    """
+    lines = [f"📢 *{BRAND_NAME} Result Bits!!*", ""]
+    lines.append(f"💼 {summary.company_name} | {summary.reporting_period} Results Out")
+    lines.append("")
+    lines.append("📊 Key Metrics")
     for m in summary.metrics:
-        body_lines.append("")
-        body_lines.append(f"{m.name} ({m.short_name}):")
+        lines.append("")
+        lines.append(f"{m.name} ({m.short_name}):")
         for p in m.periods:
-            body_lines.append(f"🗓️ {p.period_label}: {p.value}")
-        body_lines.append(
+            lines.append(f"🗓️ {p.period_label}: {p.value}")
+        lines.append(
             f"{_trend_emoji(m.qoq_change)} {_format_change(m.qoq_change)} QoQ, "
             f"{_trend_emoji(m.yoy_change)} {_format_change(m.yoy_change)} YoY"
         )
 
-    return _build_stock_bits_message(
-        summary.company_name,
-        f"{summary.reporting_period} Results Out",
-        "\n".join(body_lines),
-        impact="",
-        brand_url=equisense_url,
-        short_url=summary.insights_url or short_url,
-        download_url=download_url,
-    )
+    lines.append("")
+    lines.append("🤖 Key Insights:")
+    lines.append(f" {summary.insights_url or download_url or short_url or equisense_url}")
+    lines.append("")
+    lines.append(f"You are receiving this stock update per your request on {equisense_url}")
+    lines.append(f"Disclaimer: {equisense_url}/disclaimer")
+    return "\n".join(lines)
 
 
 def summarize_content(
