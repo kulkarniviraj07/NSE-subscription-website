@@ -36,6 +36,10 @@ services:
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:?RAZORPAY_KEY_ID must be set in the environment}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:?RAZORPAY_KEY_SECRET must be set in the environment}
       - PREMIUM_COUPON_100=${PREMIUM_COUPON_100:-PUREFRAME100}
+      # Keep specific numbers (owner/test accounts) on a higher company limit
+      # than their plan allows. Comma-separated, no country code needed.
+      - COMPANY_LIMIT_OVERRIDE_MOBILES=${COMPANY_LIMIT_OVERRIDE_MOBILES:-}
+      - COMPANY_LIMIT_OVERRIDE=${COMPANY_LIMIT_OVERRIDE:-150}
     ports:
       - "3001:3001"
     depends_on:
@@ -69,6 +73,9 @@ services:
       # Branded short download links (equityalerts.in/t/<code>). Must be the public
       # origin that reaches this bot; set "" to fall back to raw NSE URLs.
       - SHORTLINK_BASE=${SHORTLINK_BASE:-https://equityalerts.in}
+      # Dedicated metrics-table template for RESULTS filings. Set once approved
+      # (e.g. "nse_result_bits"); empty = results use TEMPLATE_NAME.
+      - TEMPLATE_RESULT_NAME=${TEMPLATE_RESULT_NAME:-}
     ports:
       - "5000:5000"
     volumes:

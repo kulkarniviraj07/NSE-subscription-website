@@ -61,7 +61,7 @@ export default function Pricing() {
 
                                 <li>✅ Access all 200+ companies</li>
 
-                                <li>✅ Track up to <b>5 companies</b></li>
+                                <li>✅ Track up to <b>10 companies</b></li>
 
                                 <li>✅ Real-time WhatsApp alerts</li>
 
@@ -93,7 +93,7 @@ export default function Pricing() {
                             </span>
 
                             <h2 className="text-6xl font-bold mt-5">
-                                ₹119
+                                ₹149
                             </h2>
 
                             <p className="text-[#98A0AE] mb-8">
@@ -158,7 +158,7 @@ export default function Pricing() {
 
                         <p className="mt-4 text-[#98A0AE]">
                             Yes. The Free plan has no expiry and allows you to
-                            monitor up to 5 companies.
+                            monitor up to 10 companies.
                         </p>
                     </details>
 
