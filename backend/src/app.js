@@ -35,6 +35,11 @@ const userCompanyRoutes =
         "./routes/userCompanyRoutes"
     );
 
+const adminRoutes =
+    require(
+        "./admin/adminRoutes"
+    );
+
 const app =
     express();
 
@@ -186,6 +191,17 @@ app.use(
     "/api/user",
 
     userCompanyRoutes
+
+);
+
+// Pureframe Central Dashboard integration — every route here requires the
+// x-central-api-key header (see backend/src/admin/adminAuthMiddleware.js).
+// Invisible and inert to regular users and to anyone without that key.
+app.use(
+
+    "/api/admin/v1",
+
+    adminRoutes
 
 );
 
