@@ -9,14 +9,14 @@ VALUES
 (
     'FREE',
     0,
-    5,
+    10,
     3650
 ),
 
 (
     'PREMIUM',
-    119,
-    150,
+    149,
+    25,
     30
 )
 ON CONFLICT (name) DO UPDATE SET

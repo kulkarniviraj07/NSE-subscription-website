@@ -168,7 +168,7 @@ export function Profile() {
                                         Need to track more stocks?
                                     </h4>
                                     <p className="text-[11px] text-[#9298A0] leading-relaxed">
-                                        Upgrade your watchlist limits from 5 to 25 companies and receive accelerated WhatsApp dispatch triggers!
+                                        Upgrade your watchlist limits from 10 to 25 companies and receive accelerated WhatsApp dispatch triggers!
                                     </p>
                                 </div>
 

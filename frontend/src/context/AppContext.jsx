@@ -153,7 +153,7 @@ export function AppProvider({ children }) {
                     id: `act-${Date.now()}`,
                     title: "Activated FREE Plan",
                     time: "Just now",
-                    desc: "Free plan successfully registered with a limit of 5 companies.",
+                    desc: "Free plan successfully registered with a limit of 10 companies.",
                     status: "success"
                 },
                 ...prev
@@ -255,7 +255,7 @@ export function AppProvider({ children }) {
             }
 
             const premiumPlan = plans.find(p => p.name === "PREMIUM");
-            const limit = premiumPlan?.company_limit || data?.subscription?.company_limit || 150;
+            const limit = premiumPlan?.company_limit || data?.subscription?.company_limit || 25;
 
             setActivities(prev => [
                 {

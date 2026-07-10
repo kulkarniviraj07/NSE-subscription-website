@@ -54,7 +54,7 @@ async function createFreeSubscription(
  * Activate PREMIUM directly, WITHOUT a payment step.
  *
  * TESTING MODE: payment is bypassed so testers can unlock the full
- * (150-company) plan instantly. Mirrors the post-payment activation in
+ * premium plan instantly. Mirrors the post-payment activation in
  * paymentController.verifyPayment — deactivate any current subscription,
  * then create a fresh ACTIVE premium subscription for `duration_days`.
  *

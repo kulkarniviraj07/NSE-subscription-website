@@ -20,7 +20,7 @@ export default function FAQ() {
         {
             question: "What does the free plan include?",
             answer:
-                "The free plan is free forever and lets you track up to 5 companies with full real-time WhatsApp alerts. Upgrade to Premium (₹119/month) to track up to 25 companies.",
+                "The free plan is free forever and lets you track up to 10 companies with full real-time WhatsApp alerts. Upgrade to Premium (₹149/month) to track up to 25 companies.",
         },
         {
             question: "Is this investment advice?",
@@ -30,7 +30,7 @@ export default function FAQ() {
         {
             question: "Can I track multiple companies?",
             answer:
-                "Yes. Free users can track up to 5 companies, while Premium users can track up to 25 companies simultaneously.",
+                "Yes. Free users can track up to 10 companies, while Premium users can track up to 25 companies simultaneously.",
         },
         {
             question: "Which exchanges are supported?",
