@@ -321,6 +321,14 @@ async function getOptions(req, res) {
     try {
         const key = req.params.key;
         const search = String(req.query.search || "");
+        // Comma-separated ids the dashboard already has selected for this
+        // field (e.g. a user's currently subscribed companyIds). Passed so
+        // we can guarantee those specific rows come back even though the
+        // general result set below is capped.
+        const selected = String(req.query.selected || "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
 
         if (key === "plans") {
             const plans = await repo.listPlans();
@@ -334,7 +342,7 @@ async function getOptions(req, res) {
         }
 
         if (key === "companies") {
-            const companies = await repo.searchCompanies(search);
+            const companies = await repo.searchCompanies(search, selected);
             return res.json({
                 success: true,
                 options: companies.map((c) => ({
