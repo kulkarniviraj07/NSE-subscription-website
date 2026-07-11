@@ -251,18 +251,45 @@ async function listPlans() {
     return result.rows;
 }
 
-async function searchCompanies(search) {
-    const result = await db.query(
+async function searchCompanies(search, selectedIds = []) {
+    const like = `%${search || ""}%`;
+    const ids = (selectedIds || [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id));
+
+    // Always fetch the caller's already-selected companies by id, however
+    // many there are — this is what guarantees a subscribed share still
+    // shows up (checked, with a label) in the multiselect even if it falls
+    // outside the capped/paged general results below or doesn't match
+    // whatever the admin is currently typing into the search box.
+    const selectedResult = ids.length
+        ? await db.query(
+              `
+              SELECT id, symbol, company_name
+              FROM companies
+              WHERE id = ANY($1::bigint[])
+              ORDER BY company_name
+              `,
+              [ids]
+          )
+        : { rows: [] };
+
+    // A bounded page of everything else matching the search term, so a
+    // single request never ships the entire (multi-thousand-row) companies
+    // table just to populate one dropdown.
+    const generalResult = await db.query(
         `
         SELECT id, symbol, company_name
         FROM companies
-        WHERE symbol ILIKE $1 OR company_name ILIKE $1
+        WHERE (symbol ILIKE $1 OR company_name ILIKE $1)
+          AND NOT (id = ANY($2::bigint[]))
         ORDER BY company_name
-        LIMIT 50
+        LIMIT 200
         `,
-        [`%${search || ""}%`]
+        [like, ids]
     );
-    return result.rows;
+
+    return [...selectedResult.rows, ...generalResult.rows];
 }
 
 module.exports = {
