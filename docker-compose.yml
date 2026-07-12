@@ -73,9 +73,9 @@ services:
       # Branded short download links (equityalerts.in/t/<code>). Must be the public
       # origin that reaches this bot; set "" to fall back to raw NSE URLs.
       - SHORTLINK_BASE=${SHORTLINK_BASE:-https://equityalerts.in}
-      # Dedicated metrics-table template for RESULTS filings. Set once approved
-      # (e.g. "nse_result_bits"); empty = results use TEMPLATE_NAME.
-      - TEMPLATE_RESULT_NAME=${TEMPLATE_RESULT_NAME:-}
+      # Dedicated metrics-table template for RESULTS filings (APPROVED in Meta).
+      # Empty = results fall back to TEMPLATE_NAME.
+      - TEMPLATE_RESULT_NAME=${TEMPLATE_RESULT_NAME:-nse_result_bits}
     ports:
       - "5000:5000"
     volumes:

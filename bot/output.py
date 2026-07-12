@@ -388,9 +388,6 @@ def _build_stock_bits_message(
     if link_added:
         lines.append("")
 
-    lines.append(f"You are receiving this stock update per your request on {brand_url}")
-    lines.append(f"Disclaimer: {brand_url}/disclaimer")
-    lines.append("")
     lines.append(PUREFRAME_LABS_AD)
     return "\n".join(lines)
 
@@ -439,9 +436,6 @@ def format_whatsapp_message(
     lines.append("")
     lines.append("🤖 Key Insights:")
     lines.append(f" {summary.insights_url or download_url or short_url or equisense_url}")
-    lines.append("")
-    lines.append(f"You are receiving this stock update per your request on {equisense_url}")
-    lines.append(f"Disclaimer: {equisense_url}/disclaimer")
     return "\n".join(lines)
 
 

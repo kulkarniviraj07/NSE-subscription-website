@@ -135,10 +135,9 @@ TEMPLATE_BODY_PARAM_COUNT = 5         # {{1}}title {{2}}company {{3}}event+time 
 #   {{7}}=download link.
 # Unused metric slots are filled with "—"; extra metrics are merged into the last.
 #
-# Leave EMPTY until the template is APPROVED — results then keep using
-# TEMPLATE_NAME. Set it (e.g. "nse_result_bits") and results switch over on the
-# next restart, no redeploy needed.
-TEMPLATE_RESULT_NAME         = os.environ.get("TEMPLATE_RESULT_NAME", "")
+# Defaults to the APPROVED "nse_result_bits" template so results use the
+# metrics-table layout. Set to "" (via env) to fall back to TEMPLATE_NAME.
+TEMPLATE_RESULT_NAME         = os.environ.get("TEMPLATE_RESULT_NAME", "nse_result_bits")
 TEMPLATE_RESULT_METRIC_SLOTS = int(os.environ.get("TEMPLATE_RESULT_METRIC_SLOTS", 3))
 # The old "Full Summary" quick-reply button has been retired — nobody tapped it,
 # and the summary now arrives inline in the template body instead. Keep this

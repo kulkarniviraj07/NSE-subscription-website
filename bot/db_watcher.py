@@ -685,7 +685,18 @@ def _try_send(phone, file_path, caption, file_key, filing_id=None,
     # so silent subscribers keep receiving their filings as template+PDF.
     if getattr(config, "SEND_AS_TEXT", True) and window_is_open and not force_template:
         try:
-            wamid = whatsapp.send_text(phone, caption)
+            # Attach a "Manage companies" CTA button that opens the add/remove
+            # page. A cta_url body is capped at 1024 chars, so very long alerts
+            # (large metrics tables) fall back to a plain text send.
+            manage_url = getattr(config, "MANAGE_COMPANIES_URL", "")
+            if manage_url and len(caption) <= 1024:
+                wamid = whatsapp.send_cta_url_button(
+                    phone, caption,
+                    button_text="Manage companies",
+                    url=manage_url,
+                )
+            else:
+                wamid = whatsapp.send_text(phone, caption)
             bot_db.mark_filing_sent(phone, file_key)
             bot_db.remove_pending_filing(phone, file_key)
             if wamid:
